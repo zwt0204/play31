@@ -1,209 +1,198 @@
 import * as THREE from 'three';
 
+const ORDER_TYPES = [
+  { name: '标准配送', ring: 1.05, speed: 0.34, reward: 100, color: 0xd9ff43 },
+  { name: '加急订单', ring: 0.92, speed: 0.52, reward: 145, color: 0xff6a45 },
+  { name: '易碎货物', ring: 0.78, speed: 0.4, reward: 185, color: 0x4de1d5 }
+];
+
 export function createOrbitGame(ui) {
   const renderer = new THREE.WebGLRenderer({
     canvas: ui.canvas,
     antialias: true,
-    alpha: false,
     powerPreference: 'high-performance'
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(ui.canvas.clientWidth, ui.canvas.clientHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
+  renderer.toneMappingExposure = 1.18;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090b0f);
-  scene.fog = new THREE.FogExp2(0x090b0f, 0.045);
+  scene.fog = new THREE.FogExp2(0x090b0f, 0.035);
 
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 80);
-  camera.position.set(0, 2.5, 11.5);
-  camera.lookAt(0, 0, -2.5);
+  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 90);
+  camera.position.set(0, 2.7, 12.8);
+  camera.lookAt(0, -0.1, -4.5);
 
-  scene.add(new THREE.HemisphereLight(0xb9f8ef, 0x1a1420, 1.7));
-  const keyLight = new THREE.DirectionalLight(0xd9ff80, 4.2);
-  keyLight.position.set(-3, 7, 6);
-  scene.add(keyLight);
-  const rimLight = new THREE.PointLight(0xff573b, 22, 18, 2);
-  rimLight.position.set(5, 0, -4);
-  scene.add(rimLight);
+  scene.add(new THREE.HemisphereLight(0xcff8f0, 0x130f1c, 1.65));
+  const sun = new THREE.DirectionalLight(0xf2ffd0, 3.8);
+  sun.position.set(-5, 8, 7);
+  scene.add(sun);
+  const rim = new THREE.PointLight(0xff6548, 26, 24, 2);
+  rim.position.set(6, 2, -5);
+  scene.add(rim);
 
   const world = new THREE.Group();
   scene.add(world);
+  addStarfield(world);
 
-  const orbitLines = new THREE.Group();
-  world.add(orbitLines);
-  [2.8, 4.4, 6.2].forEach((radius, index) => {
-    const curve = new THREE.EllipseCurve(0, -0.2, radius, radius * 0.32, 0, Math.PI * 2);
-    const points = curve.getPoints(128).map((point) => new THREE.Vector3(point.x, point.y, -4 - index * 1.7));
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({
-      color: index === 1 ? 0x657269 : 0x343a3a,
-      transparent: true,
-      opacity: index === 1 ? 0.48 : 0.26
-    });
-    orbitLines.add(new THREE.LineLoop(geometry, material));
-  });
-  orbitLines.rotation.x = 0.22;
+  const planetDefinitions = [
+    { position: [-2.8, -0.8, -3.5], radius: 0.82, mass: 5.2, color: 0x38d7cf, atmosphere: 0x93fff7 },
+    { position: [2.45, 0.45, -6.9], radius: 1.12, mass: 7.6, color: 0xff714d, atmosphere: 0xffb09b },
+    { position: [-1.35, 1.55, -10.3], radius: 0.96, mass: 6.4, color: 0x8877ff, atmosphere: 0xbeb5ff }
+  ];
+  const planets = planetDefinitions.map((definition, index) => createPlanet(definition, index, world));
 
-  const grid = new THREE.GridHelper(38, 38, 0x2b3838, 0x1b2525);
-  grid.position.set(0, -3.7, -5);
-  grid.material.transparent = true;
-  grid.material.opacity = 0.34;
-  world.add(grid);
+  const launcher = createLauncher(world);
+  const packageGroup = createPackage(world);
+  packageGroup.visible = false;
 
-  const starsGeometry = new THREE.BufferGeometry();
-  const starPositions = new Float32Array(240 * 3);
-  const seeded = (index) => {
-    const value = Math.sin(index * 91.731) * 43758.5453;
-    return value - Math.floor(value);
-  };
-  for (let index = 0; index < 240; index += 1) {
-    starPositions[index * 3] = (seeded(index) - 0.5) * 32;
-    starPositions[index * 3 + 1] = (seeded(index + 400) - 0.3) * 18;
-    starPositions[index * 3 + 2] = -seeded(index + 800) * 34;
-  }
-  starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-  const stars = new THREE.Points(starsGeometry, new THREE.PointsMaterial({
-    color: 0x9fb7ad,
-    size: 0.045,
-    transparent: true,
-    opacity: 0.72
-  }));
-  world.add(stars);
+  const goal = createGoal(world);
+  const trajectory = createTrajectory(world);
+  const trail = createTrail(world);
+  const burst = createBurst(world);
 
-  const target = new THREE.Group();
-  const outerRing = new THREE.Mesh(
-    new THREE.TorusGeometry(1.12, 0.12, 16, 80),
-    new THREE.MeshStandardMaterial({
-      color: 0xd9ff43,
-      emissive: 0x75910b,
-      emissiveIntensity: 2.2,
-      metalness: 0.3,
-      roughness: 0.22
-    })
-  );
-  const innerRing = new THREE.Mesh(
-    new THREE.TorusGeometry(0.82, 0.025, 8, 64),
-    new THREE.MeshBasicMaterial({ color: 0xecff9b, transparent: true, opacity: 0.72 })
-  );
-  const markerA = new THREE.Mesh(
-    new THREE.BoxGeometry(0.17, 0.38, 0.17),
-    new THREE.MeshStandardMaterial({ color: 0xff5b3d, emissive: 0xff3016, emissiveIntensity: 1.8 })
-  );
-  const markerB = markerA.clone();
-  markerA.position.y = 1.18;
-  markerB.position.y = -1.18;
-  target.add(outerRing, innerRing, markerA, markerB);
-  target.position.set(0, 0, -4.1);
-  world.add(target);
+  const hero = ui.canvas.closest('.game-hero');
+  const missionHud = document.createElement('aside');
+  missionHud.className = 'orbit-mission-hud';
+  missionHud.innerHTML = `
+    <div class="mission-heading"><span id="orbit-order-type">标准配送</span><strong id="orbit-order-count">1 / 5</strong></div>
+    <div class="mission-row"><span>剩余时间</span><strong id="orbit-time">75.0s</strong></div>
+    <div class="mission-row"><span>连击倍率</span><strong id="orbit-combo">×1</strong></div>
+    <div class="fuel-label"><span>推进燃料</span><strong id="orbit-fuel-value">100%</strong></div>
+    <div class="fuel-track"><i id="orbit-fuel"></i></div>
+    <div class="aim-readout"><span>航向</span><b id="orbit-aim">000°</b><small>拖动画面调整</small></div>
+  `;
+  hero.append(missionHud);
 
-  const targetGlow = new THREE.PointLight(0xc8f737, 10, 8, 2);
-  target.add(targetGlow);
-
-  const launcher = new THREE.Group();
-  launcher.position.set(0, -2.72, 3.15);
-  const launcherBase = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.55, 0.9, 0.5, 6),
-    new THREE.MeshStandardMaterial({ color: 0x282e2d, metalness: 0.82, roughness: 0.28 })
-  );
-  launcherBase.rotation.y = Math.PI / 6;
-  const launcherCore = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.22, 0.62, 24),
-    new THREE.MeshStandardMaterial({ color: 0xff5b3d, emissive: 0xd92710, emissiveIntensity: 2 })
-  );
-  launcherCore.position.y = 0.36;
-  launcher.add(launcherBase, launcherCore);
-  world.add(launcher);
-
-  const projectile = new THREE.Group();
-  const projectileBody = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.28, 1),
-    new THREE.MeshPhysicalMaterial({
-      color: 0xff6244,
-      emissive: 0xff3010,
-      emissiveIntensity: 3,
-      roughness: 0.18,
-      metalness: 0.25,
-      clearcoat: 1
-    })
-  );
-  const projectileShell = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.42, 1),
-    new THREE.MeshBasicMaterial({ color: 0xff9d83, wireframe: true, transparent: true, opacity: 0.22 })
-  );
-  projectile.add(projectileBody, projectileShell);
-  projectile.position.copy(launcher.position).add(new THREE.Vector3(0, 0.85, 0));
-  projectile.visible = false;
-  world.add(projectile);
-
-  const trailLength = 22;
-  const trailPositions = new Float32Array(trailLength * 3);
-  const trailGeometry = new THREE.BufferGeometry();
-  trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-  const trail = new THREE.Points(trailGeometry, new THREE.PointsMaterial({
-    color: 0xff775e,
-    size: 0.1,
-    transparent: true,
-    opacity: 0.72,
-    depthWrite: false
-  }));
-  trail.visible = false;
-  world.add(trail);
-
-  const burstGeometry = new THREE.BufferGeometry();
-  const burstPositions = new Float32Array(28 * 3);
-  burstGeometry.setAttribute('position', new THREE.BufferAttribute(burstPositions, 3));
-  const burst = new THREE.Points(burstGeometry, new THREE.PointsMaterial({
-    color: 0xd9ff43,
-    size: 0.12,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false
-  }));
-  world.add(burst);
-  const burstVelocities = Array.from({ length: 28 }, (_, index) => new THREE.Vector3(
-    (seeded(index + 1400) - 0.5) * 4,
-    (seeded(index + 1600) - 0.5) * 4,
-    (seeded(index + 1800) - 0.5) * 4
-  ));
+  const orderTypeElement = missionHud.querySelector('#orbit-order-type');
+  const orderCountElement = missionHud.querySelector('#orbit-order-count');
+  const timeElement = missionHud.querySelector('#orbit-time');
+  const comboElement = missionHud.querySelector('#orbit-combo');
+  const fuelValueElement = missionHud.querySelector('#orbit-fuel-value');
+  const fuelElement = missionHud.querySelector('#orbit-fuel');
+  const aimElement = missionHud.querySelector('#orbit-aim');
 
   const clock = new THREE.Clock();
-  const projectileVelocity = new THREE.Vector3();
-  const trailHistory = Array.from({ length: trailLength }, () => projectile.position.clone());
+  const velocity = new THREE.Vector3();
+  const acceleration = new THREE.Vector3();
+  const trailHistory = Array.from({ length: 34 }, () => new THREE.Vector3());
+  const burstVelocities = Array.from({ length: 36 }, (_, index) => seededVector(index));
+
   let started = false;
-  let playing = false;
+  let flying = false;
   let charging = false;
+  let aiming = false;
   let chargeStartedAt = 0;
-  let power = 0;
+  let power = 0.46;
+  let aimYaw = 0;
+  let aimPitch = 0.27;
   let score = 0;
   let lives = 3;
-  let targetPhase = 0;
-  let targetLane = 0;
-  let burstLife = 0;
+  let fuel = 100;
+  let timeLeft = 75;
+  let orderIndex = 0;
+  let combo = 0;
+  let flightTime = 0;
   let resetTimer = 0;
-  let gameOverPending = false;
-  let targetSpeed = 0.74;
+  let finishPending = false;
+  let burstLife = 0;
+  let bestScore = Number(localStorage.getItem('play31-day01-best') || 0);
+  let keyboardAim = 0;
+
+  function currentOrder() {
+    return ORDER_TYPES[orderIndex % ORDER_TYPES.length];
+  }
+
+  function currentPlanet() {
+    return planets[orderIndex % planets.length];
+  }
 
   function updateHud() {
     ui.scoreElement.textContent = String(score).padStart(3, '0');
+    ui.goalElement.textContent = `${Math.min(orderIndex, 5)} / 5`;
     ui.livesElement.textContent = Array.from({ length: 3 }, (_, index) => index < lives ? '●' : '○').join(' ');
+    orderTypeElement.textContent = currentOrder().name;
+    orderTypeElement.style.color = `#${currentOrder().color.toString(16).padStart(6, '0')}`;
+    orderCountElement.textContent = `${Math.min(orderIndex + 1, 5)} / 5`;
+    timeElement.textContent = `${Math.max(0, timeLeft).toFixed(1)}s`;
+    comboElement.textContent = `×${Math.max(1, combo)}`;
+    fuelValueElement.textContent = `${Math.max(0, Math.round(fuel))}%`;
+    fuelElement.style.width = `${Math.max(0, fuel)}%`;
+    fuelElement.classList.toggle('danger', fuel < 25);
+    aimElement.textContent = `${aimYaw >= 0 ? '+' : '−'}${String(Math.round(Math.abs(THREE.MathUtils.radToDeg(aimYaw)))).padStart(2, '0')}°`;
   }
 
-  function resetProjectile() {
-    playing = false;
-    projectile.visible = false;
+  function resetPackage() {
+    flying = false;
+    packageGroup.visible = false;
     trail.visible = false;
-    projectile.position.copy(launcher.position).add(new THREE.Vector3(0, 0.85, 0));
-    trailHistory.forEach((point) => point.copy(projectile.position));
-    power = 0;
-    ui.powerFill.style.width = '0%';
+    flightTime = 0;
+    packageGroup.position.copy(launcher.position).add(new THREE.Vector3(0, 0.9, 0));
+    velocity.set(0, 0, 0);
+    trailHistory.forEach((point) => point.copy(packageGroup.position));
+    updateTrajectory();
+  }
+
+  function updateGoal(elapsed) {
+    const planet = currentPlanet();
+    const order = currentOrder();
+    const phase = elapsed * order.speed + orderIndex * 1.31;
+    const orbitRadius = planet.userData.radius + 1.95 + (orderIndex % 2) * 0.35;
+    goal.position.set(
+      planet.position.x + Math.cos(phase) * orbitRadius,
+      planet.position.y + Math.sin(phase) * orbitRadius * 0.42,
+      planet.position.z + Math.sin(phase * 0.6) * 0.28
+    );
+    goal.scale.setScalar(order.ring);
+    goal.userData.outer.material.color.setHex(order.color);
+    goal.userData.outer.material.emissive.setHex(order.color);
+    goal.userData.light.color.setHex(order.color);
+    goal.rotation.z += 0.008 + orderIndex * 0.001;
+    goal.userData.inner.rotation.z -= 0.016;
+  }
+
+  function gravityAt(position, target = new THREE.Vector3()) {
+    target.set(0, 0, 0);
+    planets.forEach((planet) => {
+      const delta = planet.position.clone().sub(position);
+      const distanceSq = Math.max(0.7, delta.lengthSq());
+      const strength = planet.userData.mass * 0.62 / distanceSq;
+      target.add(delta.normalize().multiplyScalar(strength));
+    });
+    return target;
+  }
+
+  function launchDirection(target = new THREE.Vector3()) {
+    target.set(Math.sin(aimYaw), Math.sin(aimPitch), -Math.cos(aimYaw));
+    return target.normalize();
+  }
+
+  function updateTrajectory() {
+    if (flying) {
+      trajectory.visible = false;
+      return;
+    }
+    trajectory.visible = started;
+    const positions = trajectory.geometry.attributes.position.array;
+    const simulatedPosition = launcher.position.clone().add(new THREE.Vector3(0, 0.9, 0));
+    const simulatedVelocity = launchDirection().multiplyScalar(6.2 + power * 5.8);
+    const simulatedAcceleration = new THREE.Vector3();
+    for (let index = 0; index < positions.length / 3; index += 1) {
+      positions[index * 3] = simulatedPosition.x;
+      positions[index * 3 + 1] = simulatedPosition.y;
+      positions[index * 3 + 2] = simulatedPosition.z;
+      gravityAt(simulatedPosition, simulatedAcceleration);
+      simulatedVelocity.addScaledVector(simulatedAcceleration, 0.075);
+      simulatedPosition.addScaledVector(simulatedVelocity, 0.075);
+    }
+    trajectory.geometry.attributes.position.needsUpdate = true;
   }
 
   function beginCharge(event) {
-    if (!started || playing || resetTimer > 0) return;
-    event.preventDefault();
+    if (!started || flying || resetTimer > 0 || fuel < 8) return;
+    event?.preventDefault();
     charging = true;
     chargeStartedAt = performance.now();
     ui.launchButton.classList.add('charging');
@@ -214,90 +203,134 @@ export function createOrbitGame(ui) {
     event?.preventDefault();
     charging = false;
     ui.launchButton.classList.remove('charging');
-    power = Math.max(0.18, Math.min(1, (performance.now() - chargeStartedAt) / 1300));
-    projectile.position.copy(launcher.position).add(new THREE.Vector3(0, 0.85, 0));
-    projectileVelocity.set(0, 3.4 + power * 3.5, -7.4 - power * 5.5);
-    projectile.visible = true;
+    power = Math.max(0.18, Math.min(1, (performance.now() - chargeStartedAt) / 1250));
+    const fuelCost = 9 + power * 13;
+    if (fuel < fuelCost) {
+      power = Math.max(0.18, (fuel - 5) / 13);
+    }
+    fuel = Math.max(0, fuel - (9 + power * 13));
+    packageGroup.position.copy(launcher.position).add(new THREE.Vector3(0, 0.9, 0));
+    velocity.copy(launchDirection()).multiplyScalar(6.2 + power * 5.8);
+    packageGroup.visible = true;
     trail.visible = true;
-    playing = true;
+    trajectory.visible = false;
+    flying = true;
+    flightTime = 0;
+    updateHud();
+  }
+
+  function pointerPosition(event) {
+    const rect = ui.canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      y: -(((event.clientY - rect.top) / rect.height) * 2 - 1)
+    };
+  }
+
+  function updateAim(event) {
+    if (!started || flying) return;
+    const point = pointerPosition(event);
+    aimYaw = THREE.MathUtils.clamp(point.x * 0.62, -0.62, 0.62);
+    aimPitch = THREE.MathUtils.clamp(0.18 + (point.y + 0.15) * 0.24, 0.08, 0.48);
+    launcher.rotation.y = -aimYaw;
+    updateTrajectory();
+    updateHud();
+  }
+
+  function spawnBurst(position, color) {
+    burst.position.copy(position);
+    burst.material.color.setHex(color);
+    burst.material.opacity = 1;
+    burstLife = 0.8;
+    burst.geometry.attributes.position.array.fill(0);
+    burst.geometry.attributes.position.needsUpdate = true;
+  }
+
+  function completeOrder() {
+    const order = currentOrder();
+    combo += 1;
+    const comboMultiplier = 1 + Math.min(3, combo - 1) * 0.35;
+    const reward = Math.round((order.reward + fuel * 0.35 + Math.max(0, 7 - flightTime) * 8) * comboMultiplier);
+    score += reward;
+    fuel = Math.min(100, fuel + 16);
+    timeLeft = Math.min(75, timeLeft + (order.name === '加急订单' ? 7 : 4));
+    spawnBurst(packageGroup.position, order.color);
+    packageGroup.visible = false;
+    trail.visible = false;
+    flying = false;
+    orderIndex += 1;
+    resetTimer = 0.85;
+    if (orderIndex >= 5) finishPending = true;
+    updateHud();
+  }
+
+  function failDelivery(reason = '轨道偏离') {
+    if (!flying) return;
+    flying = false;
+    packageGroup.visible = false;
+    trail.visible = false;
+    lives -= 1;
+    combo = 0;
+    resetTimer = 0.72;
+    spawnBurst(packageGroup.position, 0xff5b3d);
+    if (lives <= 0) finishPending = true;
+    ui.resultCopy.textContent = reason;
+    updateHud();
+  }
+
+  function rating() {
+    if (orderIndex >= 5 && lives >= 2 && fuel >= 25) return 3;
+    if (orderIndex >= 4 || score >= 650) return 2;
+    return 1;
+  }
+
+  function endGame(reason) {
+    started = false;
+    flying = false;
+    charging = false;
+    aiming = false;
+    packageGroup.visible = false;
+    trail.visible = false;
+    trajectory.visible = false;
+    ui.launchButton.classList.remove('charging');
+    bestScore = Math.max(bestScore, score);
+    localStorage.setItem('play31-day01-best', String(bestScore));
+    const stars = '★'.repeat(rating()) + '☆'.repeat(3 - rating());
+    ui.finalScore.textContent = String(score);
+    ui.resultCopy.textContent = `${stars}　${reason} · 最佳 ${bestScore}`;
+    ui.resultPanel.hidden = false;
   }
 
   function startRound() {
     started = true;
     score = 0;
     lives = 3;
-    targetSpeed = 0.74;
-    targetLane = 0;
-    targetPhase = -clock.elapsedTime * targetSpeed;
+    fuel = 100;
+    timeLeft = 75;
+    orderIndex = 0;
+    combo = 0;
     resetTimer = 0;
-    gameOverPending = false;
+    finishPending = false;
+    power = 0.46;
+    aimYaw = 0;
+    aimPitch = 0.27;
     ui.startScreen.hidden = true;
     ui.resultPanel.hidden = true;
+    resetPackage();
     updateHud();
-    resetProjectile();
   }
 
-  function endGame() {
-    started = false;
-    resetProjectile();
-    ui.finalScore.textContent = String(score);
-    ui.resultCopy.textContent = score >= 5 ? '轨道已被你掌握。明天见。' : score >= 2 ? '节奏不错，再挑战一次更高分。' : '再试一次，观察能量环的运动。';
-    ui.resultPanel.hidden = false;
-  }
+  function updatePackage(delta) {
+    if (!flying) return;
+    flightTime += delta;
+    gravityAt(packageGroup.position, acceleration);
+    velocity.addScaledVector(acceleration, delta);
+    packageGroup.position.addScaledVector(velocity, delta);
+    packageGroup.rotation.x += delta * 2.4;
+    packageGroup.rotation.y += delta * 3.1;
+    packageGroup.userData.shell.rotation.z -= delta * 2.2;
 
-  function createBurst(position) {
-    burst.position.copy(position);
-    const positions = burst.geometry.attributes.position.array;
-    positions.fill(0);
-    burst.geometry.attributes.position.needsUpdate = true;
-    burst.material.opacity = 1;
-    burstLife = 0.72;
-  }
-
-  function hitTarget() {
-    score += 1;
-    targetLane = (targetLane + 1) % 3;
-    targetSpeed = Math.min(1.4, targetSpeed + 0.08);
-    createBurst(projectile.position);
-    updateHud();
-    resetTimer = 0.72;
-    playing = false;
-    projectile.visible = false;
-    trail.visible = false;
-  }
-
-  function missTarget() {
-    lives -= 1;
-    updateHud();
-    resetTimer = 0.62;
-    playing = false;
-    projectile.visible = false;
-    trail.visible = false;
-    gameOverPending = lives <= 0;
-  }
-
-  function updateTarget(elapsed) {
-    const lanes = [0, 0.82, -0.62];
-    const amplitude = [2.15, 1.72, 2.5][targetLane];
-    target.position.x = Math.sin(elapsed * targetSpeed + targetPhase) * amplitude;
-    target.position.y = lanes[targetLane] + Math.sin(elapsed * targetSpeed * 1.7) * 0.22;
-    target.rotation.z = Math.sin(elapsed * 0.55) * 0.18;
-    outerRing.rotation.z += 0.008;
-    innerRing.rotation.z -= 0.012;
-    const pulse = 1 + Math.sin(elapsed * 3.2) * 0.035;
-    target.scale.setScalar(pulse);
-  }
-
-  function updateProjectile(delta, elapsed) {
-    if (!playing) return;
-    const previousZ = projectile.position.z;
-    projectileVelocity.y -= 5.5 * delta;
-    projectile.position.addScaledVector(projectileVelocity, delta);
-    projectile.rotation.x += delta * 2.8;
-    projectile.rotation.y += delta * 3.6;
-    projectileShell.rotation.z -= delta * 2.2;
-
-    trailHistory.unshift(projectile.position.clone());
+    trailHistory.unshift(packageGroup.position.clone());
     trailHistory.pop();
     const positions = trail.geometry.attributes.position.array;
     trailHistory.forEach((point, index) => {
@@ -307,57 +340,80 @@ export function createOrbitGame(ui) {
     });
     trail.geometry.attributes.position.needsUpdate = true;
 
-    if (previousZ > target.position.z && projectile.position.z <= target.position.z) {
-      const dx = projectile.position.x - target.position.x;
-      const dy = projectile.position.y - target.position.y;
-      if (Math.hypot(dx, dy) < 0.88) {
-        hitTarget();
-        targetPhase = elapsed * -targetSpeed + Math.PI * 0.45;
+    if (packageGroup.position.distanceTo(goal.position) < currentOrder().ring * 0.88) {
+      completeOrder();
+      return;
+    }
+
+    for (const planet of planets) {
+      const surfaceDistance = packageGroup.position.distanceTo(planet.position) - planet.userData.radius;
+      if (surfaceDistance < 0.18) {
+        failDelivery('货物撞上了行星');
         return;
       }
     }
 
-    if (projectile.position.z < -10 || projectile.position.y < -5 || projectile.position.y > 9) missTarget();
+    if (flightTime > 8.5 || packageGroup.position.z < -18 || packageGroup.position.y < -6 || Math.abs(packageGroup.position.x) > 12) {
+      failDelivery('货物脱离了配送轨道');
+    }
   }
 
   function updateBurst(delta) {
     if (burstLife <= 0) return;
     burstLife -= delta;
     const positions = burst.geometry.attributes.position.array;
-    burstVelocities.forEach((velocity, index) => {
-      positions[index * 3] += velocity.x * delta;
-      positions[index * 3 + 1] += velocity.y * delta;
-      positions[index * 3 + 2] += velocity.z * delta;
+    burstVelocities.forEach((velocityItem, index) => {
+      positions[index * 3] += velocityItem.x * delta;
+      positions[index * 3 + 1] += velocityItem.y * delta;
+      positions[index * 3 + 2] += velocityItem.z * delta;
     });
     burst.geometry.attributes.position.needsUpdate = true;
-    burst.material.opacity = Math.max(0, burstLife / 0.72);
+    burst.material.opacity = Math.max(0, burstLife / 0.8);
   }
 
   function animate() {
     const delta = Math.min(clock.getDelta(), 0.033);
     const elapsed = clock.elapsedTime;
-    updateTarget(elapsed);
-    updateProjectile(delta, elapsed);
-    updateBurst(delta);
 
-    if (charging) {
-      power = Math.min(1, (performance.now() - chargeStartedAt) / 1300);
-      ui.powerFill.style.width = `${Math.round(power * 100)}%`;
-    }
+    updateGoal(elapsed);
+    planets.forEach((planet, index) => {
+      planet.userData.surface.rotation.y += delta * (0.08 + index * 0.025);
+      planet.userData.atmosphere.rotation.y -= delta * 0.04;
+    });
 
-    if (resetTimer > 0) {
-      resetTimer -= delta;
-      if (resetTimer <= 0) {
-        resetTimer = 0;
-        if (gameOverPending) endGame();
-        else resetProjectile();
+    if (started) {
+      timeLeft -= delta;
+      if (charging) {
+        power = Math.min(1, (performance.now() - chargeStartedAt) / 1250);
+        ui.powerFill.style.width = `${Math.round(power * 100)}%`;
+        updateTrajectory();
+      } else if (!flying) {
+        ui.powerFill.style.width = `${Math.round(power * 100)}%`;
       }
+      if (keyboardAim !== 0 && !flying) {
+        aimYaw = THREE.MathUtils.clamp(aimYaw + keyboardAim * delta * 0.7, -0.62, 0.62);
+        launcher.rotation.y = -aimYaw;
+        updateTrajectory();
+      }
+      updatePackage(delta);
+      if (resetTimer > 0) {
+        resetTimer -= delta;
+        if (resetTimer <= 0) {
+          if (finishPending) endGame(orderIndex >= 5 ? '五笔订单全部送达' : '货物耐久耗尽');
+          else if (fuel < 8) endGame('推进燃料耗尽');
+          else resetPackage();
+        }
+      }
+      if (timeLeft <= 0) endGame('配送时间结束');
+      updateHud();
+    } else {
+      launcher.userData.core.position.y = 0.38 + Math.sin(elapsed * 2.4) * 0.04;
     }
 
-    stars.rotation.y = elapsed * 0.006;
-    launcherCore.position.y = 0.36 + Math.sin(elapsed * 2.4) * 0.035;
-    camera.position.x = Math.sin(elapsed * 0.12) * 0.16;
-    camera.lookAt(0, -0.05, -2.6);
+    updateBurst(delta);
+    world.rotation.y = Math.sin(elapsed * 0.12) * 0.018;
+    camera.position.x = Math.sin(elapsed * 0.1) * 0.12;
+    camera.lookAt(0, -0.1, -4.5);
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
@@ -368,8 +424,8 @@ export function createOrbitGame(ui) {
     renderer.setSize(width, height, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     camera.aspect = width / height;
-    camera.fov = width < 700 ? 58 : 46;
-    camera.position.z = width < 700 ? 13.8 : 11.5;
+    camera.fov = width < 700 ? 62 : 48;
+    camera.position.z = width < 700 ? 14.5 : 12.8;
     camera.updateProjectionMatrix();
   }
 
@@ -378,15 +434,173 @@ export function createOrbitGame(ui) {
   ui.launchButton.addEventListener('pointerdown', beginCharge);
   window.addEventListener('pointerup', releaseCharge);
   window.addEventListener('pointercancel', releaseCharge);
+  ui.canvas.addEventListener('pointerdown', (event) => {
+    if (!started || flying) return;
+    aiming = true;
+    updateAim(event);
+  });
+  ui.canvas.addEventListener('pointermove', (event) => {
+    if (aiming) updateAim(event);
+  });
+  window.addEventListener('pointerup', () => { aiming = false; });
   window.addEventListener('keydown', (event) => {
     if (event.code === 'Space' && !event.repeat) beginCharge(event);
+    if (event.code === 'ArrowLeft' || event.code === 'KeyA') keyboardAim = -1;
+    if (event.code === 'ArrowRight' || event.code === 'KeyD') keyboardAim = 1;
   });
   window.addEventListener('keyup', (event) => {
     if (event.code === 'Space') releaseCharge(event);
+    if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(event.code)) keyboardAim = 0;
   });
   window.addEventListener('resize', resize);
 
   updateHud();
   resize();
+  updateGoal(0);
+  updateTrajectory();
   animate();
+}
+
+function createPlanet(definition, index, world) {
+  const group = new THREE.Group();
+  group.position.fromArray(definition.position);
+  group.userData.radius = definition.radius;
+  group.userData.mass = definition.mass;
+
+  const surface = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(definition.radius, 4),
+    new THREE.MeshPhysicalMaterial({
+      color: definition.color,
+      emissive: definition.color,
+      emissiveIntensity: 0.22,
+      metalness: 0.18,
+      roughness: 0.72,
+      clearcoat: 0.34
+    })
+  );
+  const atmosphere = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(definition.radius * 1.12, 3),
+    new THREE.MeshBasicMaterial({ color: definition.atmosphere, transparent: true, opacity: 0.12, wireframe: index === 2 })
+  );
+  const orbit = new THREE.Mesh(
+    new THREE.TorusGeometry(definition.radius + 2.05, 0.018, 6, 96),
+    new THREE.MeshBasicMaterial({ color: definition.atmosphere, transparent: true, opacity: 0.28 })
+  );
+  orbit.rotation.x = Math.PI / 2;
+  orbit.scale.y = 0.42;
+  group.add(surface, atmosphere, orbit);
+  group.userData.surface = surface;
+  group.userData.atmosphere = atmosphere;
+  world.add(group);
+  return group;
+}
+
+function createLauncher(world) {
+  const launcher = new THREE.Group();
+  launcher.position.set(0, -2.65, 3.15);
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.65, 1, 0.52, 6),
+    new THREE.MeshStandardMaterial({ color: 0x2a302f, metalness: 0.8, roughness: 0.25 })
+  );
+  const core = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2, 0.28, 0.7, 20),
+    new THREE.MeshStandardMaterial({ color: 0xff6548, emissive: 0xff3218, emissiveIntensity: 2.4 })
+  );
+  core.position.y = 0.38;
+  const sight = new THREE.Mesh(
+    new THREE.TorusGeometry(0.48, 0.035, 8, 36),
+    new THREE.MeshBasicMaterial({ color: 0xd9ff43 })
+  );
+  sight.position.set(0, 0.92, -0.28);
+  sight.rotation.x = Math.PI / 2;
+  launcher.add(base, core, sight);
+  launcher.userData.core = core;
+  world.add(launcher);
+  return launcher;
+}
+
+function createPackage(world) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.48, 0.42, 0.48),
+    new THREE.MeshPhysicalMaterial({ color: 0xff704f, emissive: 0xff3218, emissiveIntensity: 2.2, metalness: 0.25, roughness: 0.2, clearcoat: 1 })
+  );
+  const shell = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.48, 1),
+    new THREE.MeshBasicMaterial({ color: 0xffb29f, wireframe: true, transparent: true, opacity: 0.28 })
+  );
+  group.add(body, shell);
+  group.userData.shell = shell;
+  world.add(group);
+  return group;
+}
+
+function createGoal(world) {
+  const goal = new THREE.Group();
+  const material = new THREE.MeshStandardMaterial({ color: 0xd9ff43, emissive: 0xd9ff43, emissiveIntensity: 2.4, metalness: 0.32, roughness: 0.2 });
+  const outer = new THREE.Mesh(new THREE.TorusGeometry(1, 0.11, 14, 72), material);
+  const inner = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.025, 8, 56), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 }));
+  const light = new THREE.PointLight(0xd9ff43, 12, 8, 2);
+  goal.add(outer, inner, light);
+  goal.userData.outer = outer;
+  goal.userData.inner = inner;
+  goal.userData.light = light;
+  world.add(goal);
+  return goal;
+}
+
+function createTrajectory(world) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(52 * 3), 3));
+  const line = new THREE.Line(geometry, new THREE.LineDashedMaterial({ color: 0xd9ff43, transparent: true, opacity: 0.58, dashSize: 0.18, gapSize: 0.12 }));
+  line.computeLineDistances();
+  world.add(line);
+  return line;
+}
+
+function createTrail(world) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(34 * 3), 3));
+  const trail = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xff8065, size: 0.09, transparent: true, opacity: 0.76, depthWrite: false }));
+  trail.visible = false;
+  world.add(trail);
+  return trail;
+}
+
+function createBurst(world) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(36 * 3), 3));
+  const burst = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xd9ff43, size: 0.12, transparent: true, opacity: 0, depthWrite: false }));
+  world.add(burst);
+  return burst;
+}
+
+function addStarfield(world) {
+  const positions = new Float32Array(300 * 3);
+  for (let index = 0; index < 300; index += 1) {
+    positions[index * 3] = (seed(index) - 0.5) * 34;
+    positions[index * 3 + 1] = (seed(index + 500) - 0.3) * 20;
+    positions[index * 3 + 2] = -seed(index + 1000) * 38;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  world.add(new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xa8c0b7, size: 0.045, transparent: true, opacity: 0.72 })));
+  const grid = new THREE.GridHelper(40, 40, 0x30413e, 0x1a2423);
+  grid.position.set(0, -3.75, -6);
+  grid.material.transparent = true;
+  grid.material.opacity = 0.26;
+  world.add(grid);
+}
+
+function seed(index) {
+  const value = Math.sin(index * 91.731) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function seededVector(index) {
+  return new THREE.Vector3(
+    (seed(index + 1300) - 0.5) * 4.4,
+    (seed(index + 1600) - 0.5) * 4.4,
+    (seed(index + 1900) - 0.5) * 4.4
+  );
 }

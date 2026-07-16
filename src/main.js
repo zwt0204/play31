@@ -15,7 +15,7 @@ const games = [
 ];
 
 const playableDetails = {
-  1: { description: '找准时机，把能量包送入移动轨道。', instruction: '长按蓄力，松手发射。穿过旋转的能量环即可得分。', control: '按住蓄力 · 松开发射' },
+  1: { description: '规划多行星航线，借助引力弹弓完成太空订单。', instruction: '拖动画面调整方向，长按蓄力后松开发射。管理燃料与货物耐久，连续完成 5 笔轨道订单。', control: '拖动瞄准 · 按住蓄力' },
   2: { description: '在移动挡板间连续反弹，击中顶部货箱。', instruction: '观察弹板位置，点击释放小球。连续反弹次数越多，得分越高。', control: '点击释放弹球' },
   3: { description: '旋转镜面，让光束依次点亮三个节点。', instruction: '点击场景中的镜面改变方向，在步数耗尽前接通所有能量节点。', control: '点击镜面旋转' },
   4: { description: '抓准横向移动的瞬间，把方块稳稳叠高。', instruction: '点击放下移动中的方块。重叠越整齐，下一层保留的面积越大。', control: '点击放下方块' },
@@ -100,8 +100,11 @@ document.querySelector('#app').innerHTML = `
 
       <div class="hud" aria-live="polite">
         <div><span>得分</span><strong id="score">000</strong></div>
+        <div><span>目标</span><strong id="goal">0 / 8</strong></div>
         <div><span>剩余</span><strong id="lives">● ● ●</strong></div>
       </div>
+
+      <div class="game-toast" id="game-toast" aria-live="polite"></div>
 
       <div class="game-controls">
         <div class="power-wrap">
@@ -210,10 +213,12 @@ const gameUi = {
     startScreen: document.querySelector('#start-screen'),
     resultPanel: document.querySelector('#result-panel'),
     scoreElement: document.querySelector('#score'),
+    goalElement: document.querySelector('#goal'),
     livesElement: document.querySelector('#lives'),
     powerFill: document.querySelector('#power-fill'),
     finalScore: document.querySelector('#final-score'),
-    resultCopy: document.querySelector('#result-copy')
+    resultCopy: document.querySelector('#result-copy'),
+    toast: document.querySelector('#game-toast')
 };
 
 if (selectedDay === 1) {
