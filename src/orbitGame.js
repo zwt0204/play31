@@ -100,6 +100,7 @@ export function createOrbitGame(ui) {
   let burstLife = 0;
   let bestScore = Number(localStorage.getItem('play31-day01-best') || 0);
   let keyboardAim = 0;
+  let paused = Boolean(window.play31Paused);
 
   function currentOrder() {
     return ORDER_TYPES[orderIndex % ORDER_TYPES.length];
@@ -381,7 +382,7 @@ export function createOrbitGame(ui) {
       planet.userData.atmosphere.rotation.y -= delta * 0.04;
     });
 
-    if (started) {
+    if (started && !paused) {
       timeLeft -= delta;
       if (charging) {
         power = Math.min(1, (performance.now() - chargeStartedAt) / 1250);
@@ -406,7 +407,7 @@ export function createOrbitGame(ui) {
       }
       if (timeLeft <= 0) endGame('配送时间结束');
       updateHud();
-    } else {
+    } else if (!started) {
       launcher.userData.core.position.y = 0.38 + Math.sin(elapsed * 2.4) * 0.04;
     }
 
@@ -453,6 +454,14 @@ export function createOrbitGame(ui) {
     if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(event.code)) keyboardAim = 0;
   });
   window.addEventListener('resize', resize);
+  window.addEventListener('play31:pause', (event) => {
+    paused = Boolean(event.detail);
+    if (paused) {
+      charging = false;
+      aiming = false;
+      ui.launchButton.classList.remove('charging');
+    }
+  });
 
   updateHud();
   resize();

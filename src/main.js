@@ -15,7 +15,16 @@ const games = [
 ];
 
 const playableDetails = {
-  1: { description: '规划多行星航线，借助引力弹弓完成太空订单。', instruction: '拖动画面调整方向，长按蓄力后松开发射。管理燃料与货物耐久，连续完成 5 笔轨道订单。', control: '拖动瞄准 · 按住蓄力' },
+  1: {
+    description: '规划多行星航线，借助引力弹弓完成太空订单。',
+    instruction: '拖动画面调整方向，长按蓄力后松开发射。管理燃料与货物耐久，连续完成 5 笔轨道订单。',
+    control: '拖动瞄准 · 按住蓄力',
+    rules: [
+      '拖动画面调整航向，让黄色预测线靠近发光目标环。',
+      '按住底部按钮增加推力，松开后发射；力度越大，消耗燃料越多。',
+      '利用行星引力改变航线，在时间和三次机会耗尽前送达 5 笔订单。'
+    ]
+  },
   2: { description: '在移动挡板间连续反弹，击中顶部货箱。', instruction: '观察弹板位置，点击释放小球。连续反弹次数越多，得分越高。', control: '点击释放弹球' },
   3: { description: '旋转镜面，让光束依次点亮三个节点。', instruction: '点击场景中的镜面改变方向，在步数耗尽前接通所有能量节点。', control: '点击镜面旋转' },
   4: { description: '抓准横向移动的瞬间，把方块稳稳叠高。', instruction: '点击放下移动中的方块。重叠越整齐，下一层保留的面积越大。', control: '点击放下方块' },
@@ -58,6 +67,11 @@ const meterLabels = {
 };
 document.title = `Day ${selectedDayLabel} · ${selectedGame[0]} | 一日一游`;
 document.querySelector('meta[name="description"]')?.setAttribute('content', selectedDetails.description);
+const rules = selectedDetails.rules || [
+  `操作：${selectedDetails.control}。`,
+  `目标：${selectedDetails.description}`,
+  '在三次机会耗尽前达到页面显示的目标进度，连续成功可以获得额外分数。'
+];
 
 const gameCards = monthlyGames.map((game, index) => {
   const day = String(index + 1).padStart(2, '0');
@@ -85,11 +99,14 @@ document.querySelector('#app').innerHTML = `
           <span class="brand-mark">1×${monthDayCount}</span>
           <span>一日一游</span>
         </a>
-        <a class="calendar-link" href="#calendar" aria-label="查看${monthLabel}全部${monthDayCount}款游戏">
-          <span class="grid-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          <span class="calendar-link-copy"><strong>全部 ${monthDayCount} 款</strong><small>${monthLabel}</small></span>
-          <span class="calendar-arrow" aria-hidden="true">↓</span>
-        </a>
+        <div class="topbar-actions">
+          <button class="rules-trigger" id="rules-trigger" type="button">玩法<span>说明</span></button>
+          <a class="calendar-link" href="#calendar" aria-label="查看${monthLabel}全部${monthDayCount}款游戏">
+            <span class="grid-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span class="calendar-link-copy"><strong>全部 ${monthDayCount} 款</strong><small>${monthLabel}</small></span>
+            <span class="calendar-arrow" aria-hidden="true">↓</span>
+          </a>
+        </div>
       </div>
 
       <div class="game-info">
@@ -105,6 +122,18 @@ document.querySelector('#app').innerHTML = `
       </div>
 
       <div class="game-toast" id="game-toast" aria-live="polite"></div>
+
+      <aside class="rules-panel" id="rules-panel" hidden aria-labelledby="rules-title">
+        <button class="rules-close" id="rules-close" type="button" aria-label="关闭玩法说明">×</button>
+        <p class="eyebrow">HOW TO PLAY · DAY ${selectedDayLabel}</p>
+        <h2 id="rules-title">${selectedGame[0]}</h2>
+        <p class="rules-summary">${selectedDetails.description}</p>
+        <ol>
+          ${rules.map((rule, index) => `<li><span>${String(index + 1).padStart(2, '0')}</span><p>${rule}</p></li>`).join('')}
+        </ol>
+        <div class="rules-tip"><span>电脑</span>鼠标拖动或空格键　<span>手机</span>直接触摸游戏区域</div>
+        <button class="rules-ready" id="rules-ready" type="button">知道了，开始挑战</button>
+      </aside>
 
       <div class="game-controls">
         <div class="power-wrap">
@@ -204,6 +233,17 @@ document.querySelector('#month-picker').addEventListener('change', (event) => {
   url.hash = 'calendar';
   window.location.assign(url);
 });
+
+const rulesPanel = document.querySelector('#rules-panel');
+window.play31Paused = false;
+const setRulesOpen = (open) => {
+  rulesPanel.hidden = !open;
+  window.play31Paused = open;
+  window.dispatchEvent(new CustomEvent('play31:pause', { detail: open }));
+};
+document.querySelector('#rules-trigger').addEventListener('click', () => setRulesOpen(true));
+document.querySelector('#rules-close').addEventListener('click', () => setRulesOpen(false));
+document.querySelector('#rules-ready').addEventListener('click', () => setRulesOpen(false));
 
 const gameUi = {
     canvas: document.querySelector('#game-canvas'),

@@ -47,6 +47,7 @@ export function createDailyGame(day, ui) {
   const feedbackBurst = createFeedbackBurst(world);
   let audioContext = null;
   let toastTimer = 0;
+  let paused = Boolean(window.play31Paused);
   const bestScoreKey = `play31-day${String(day).padStart(2, '0')}-best`;
   let bestScore = Number(localStorage.getItem(bestScoreKey) || 0);
 
@@ -256,13 +257,13 @@ export function createDailyGame(day, ui) {
   function animate() {
     const delta = Math.min(clock.getDelta(), 0.033);
     state.elapsed += delta;
-    if (state.started) {
+    if (state.started && !paused) {
       state.roundTime += delta;
       game.update(delta, state.elapsed, { hit, miss });
       feedbackBurst.update(delta);
       if (state.cooldown > 0) state.cooldown -= delta;
       if (state.gameOverPending && state.cooldown <= 0) endGame();
-    } else {
+    } else if (!state.started) {
       game.idle?.(delta, state.elapsed);
       feedbackBurst.update(delta);
     }
@@ -289,6 +290,13 @@ export function createDailyGame(day, ui) {
     if (event.code === 'Space') controlUp(event);
   });
   window.addEventListener('resize', resize);
+  window.addEventListener('play31:pause', (event) => {
+    paused = Boolean(event.detail);
+    if (paused) {
+      state.holding = false;
+      ui.launchButton.classList.remove('charging');
+    }
+  });
 
   updateHud();
   resize();
