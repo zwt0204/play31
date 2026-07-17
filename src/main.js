@@ -1,4 +1,5 @@
 import './style.css';
+import { createLeaderboard } from './leaderboard.js';
 
 const games = [
   ['引力投递', '轨道 · 时机'], ['反弹车间', '弹射 · 角度'], ['光束接线', '折射 · 路径'],
@@ -123,6 +124,7 @@ document.querySelector('#app').innerHTML = `
         </a>
         <div class="topbar-actions">
           <button class="rules-trigger" id="rules-trigger" type="button">玩法<span>说明</span></button>
+          <button class="leaderboard-trigger" id="leaderboard-trigger" type="button">排行</button>
           <a class="calendar-link" href="#calendar" aria-label="查看${monthLabel}全部${monthDayCount}款游戏">
             <span class="grid-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             <span class="calendar-link-copy"><strong>全部 ${monthDayCount} 款</strong><small>${monthLabel}</small></span>
@@ -161,6 +163,18 @@ document.querySelector('#app').innerHTML = `
         <button class="rules-ready" id="rules-ready" type="button">知道了，开始挑战</button>
       </aside>
 
+      <aside class="leaderboard-panel" id="leaderboard-panel" hidden aria-labelledby="leaderboard-title">
+        <button class="leaderboard-close" id="leaderboard-close" type="button" aria-label="关闭排行榜">×</button>
+        <p class="eyebrow">DAY ${selectedDayLabel} · HIGH SCORES</p>
+        <h2 id="leaderboard-title">${selectedGame[0]}排行</h2>
+        <div class="my-game-ranking">
+          <div><span>你的最高分</span><strong id="my-best-score">0</strong></div>
+          <div><span>本关排名</span><strong id="my-game-rank">--</strong></div>
+        </div>
+        <ol class="ranking-list game-ranking-list" id="game-ranking-list"></ol>
+        <p class="ranking-status" data-ranking-status>正在连接排行服务…</p>
+      </aside>
+
       <div class="game-controls ${canvasPrimary ? 'canvas-primary' : ''}">
         <div class="power-wrap">
           <span>${meterLabels[selectedDay]}</span>
@@ -177,6 +191,7 @@ document.querySelector('#app').innerHTML = `
         <p>MONTH ${String(seriesMonth).padStart(2, '0')} EXPERIMENT</p>
         <h2>${selectedGame[0]}</h2>
         <p class="start-copy">${selectedDetails.instruction}</p>
+        <div class="player-identity"><span>你的随机代号</span><strong data-player-name>生成中…</strong></div>
         <div class="start-actions">
           <button id="start-button" type="button">开始游戏 <span>→</span></button>
           <a class="secondary-calendar-link" href="#calendar">查看本月全部 ${monthDayCount} 款</a>
@@ -189,6 +204,7 @@ document.querySelector('#app').innerHTML = `
         <span id="result-copy">再试一次，找到轨道的节奏。</span>
         <div class="start-actions">
           <button id="restart-button" type="button">再来一局</button>
+          <button id="result-ranking-button" class="secondary-ranking-button" type="button">查看本关排行</button>
           <a class="secondary-calendar-link" href="#calendar">浏览其他 16 款已发布游戏</a>
         </div>
       </div>
@@ -208,6 +224,23 @@ document.querySelector('#app').innerHTML = `
         <div><strong>01</strong><span>每天一个链接</span></div>
         <div><strong>60s</strong><span>单局轻体验</span></div>
       </div>
+    </section>
+
+    <section class="global-ranking-section" id="ranking" aria-labelledby="global-ranking-title">
+      <div class="global-ranking-heading">
+        <div>
+          <p class="eyebrow">MOST PLAYED · LIVE</p>
+          <h2 id="global-ranking-title">总游玩次数榜</h2>
+          <p>每开始一局记录一次，看看谁是这个月最沉迷的玩家。</p>
+        </div>
+        <div class="my-global-ranking">
+          <span>你的代号</span>
+          <strong data-player-name>生成中…</strong>
+          <div><span>游玩 <b id="my-total-plays">0</b> 次</span><span>排名 <b id="my-global-rank">--</b></span></div>
+        </div>
+      </div>
+      <ol class="ranking-list global-ranking-list" id="global-ranking-list"></ol>
+      <p class="ranking-status" data-ranking-status>正在连接排行服务…</p>
     </section>
 
     <section class="calendar-section" id="calendar">
@@ -261,15 +294,39 @@ document.querySelector('#month-picker').addEventListener('change', (event) => {
 });
 
 const rulesPanel = document.querySelector('#rules-panel');
+const leaderboardPanel = document.querySelector('#leaderboard-panel');
 window.play31Paused = false;
-const setRulesOpen = (open) => {
-  rulesPanel.hidden = !open;
-  window.play31Paused = open;
-  window.dispatchEvent(new CustomEvent('play31:pause', { detail: open }));
+const setOverlay = (panel = null) => {
+  rulesPanel.hidden = panel !== rulesPanel;
+  leaderboardPanel.hidden = panel !== leaderboardPanel;
+  const paused = Boolean(panel);
+  window.play31Paused = paused;
+  window.dispatchEvent(new CustomEvent('play31:pause', { detail: paused }));
 };
-document.querySelector('#rules-trigger').addEventListener('click', () => setRulesOpen(true));
-document.querySelector('#rules-close').addEventListener('click', () => setRulesOpen(false));
-document.querySelector('#rules-ready').addEventListener('click', () => setRulesOpen(false));
+document.querySelector('#rules-trigger').addEventListener('click', () => setOverlay(rulesPanel));
+document.querySelector('#rules-close').addEventListener('click', () => setOverlay());
+document.querySelector('#rules-ready').addEventListener('click', () => setOverlay());
+
+const leaderboard = createLeaderboard({
+  day: selectedDay,
+  elements: {
+    playerNames: document.querySelectorAll('[data-player-name]'),
+    statuses: document.querySelectorAll('[data-ranking-status]'),
+    globalList: document.querySelector('#global-ranking-list'),
+    gameList: document.querySelector('#game-ranking-list'),
+    myTotalPlays: document.querySelector('#my-total-plays'),
+    myGlobalRank: document.querySelector('#my-global-rank'),
+    myBestScore: document.querySelector('#my-best-score'),
+    myGameRank: document.querySelector('#my-game-rank')
+  }
+});
+const openLeaderboard = () => {
+  setOverlay(leaderboardPanel);
+  leaderboard.refresh();
+};
+document.querySelector('#leaderboard-trigger').addEventListener('click', openLeaderboard);
+document.querySelector('#result-ranking-button').addEventListener('click', openLeaderboard);
+document.querySelector('#leaderboard-close').addEventListener('click', () => setOverlay());
 
 const gestureHint = document.querySelector('#gesture-hint');
 if (canvasPrimary) {
@@ -297,7 +354,9 @@ const gameUi = {
     finalScore: document.querySelector('#final-score'),
     resultCopy: document.querySelector('#result-copy'),
     toast: document.querySelector('#game-toast'),
-    gestureHint
+    gestureHint,
+    onRoundStart: leaderboard.startRound,
+    onRoundEnd: leaderboard.endRound
 };
 
 if (selectedDay === 1) {

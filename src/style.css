@@ -44,7 +44,7 @@ a { color: inherit; text-decoration: none; }
 
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
 .topbar-actions { display: flex; align-items: stretch; gap: 8px; }
-.rules-trigger {
+.rules-trigger, .leaderboard-trigger {
   min-width: 82px;
   padding: 0 14px;
   color: #fff;
@@ -53,7 +53,7 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
   font-size: 12px;
 }
-.rules-trigger:hover { color: var(--acid); border-color: var(--acid); }
+.rules-trigger:hover, .leaderboard-trigger:hover { color: var(--acid); border-color: var(--acid); }
 .brand-mark {
   display: grid;
   place-items: center;
@@ -185,6 +185,40 @@ a { color: inherit; text-decoration: none; }
 .rules-tip span { margin-right: 5px; padding: 3px 6px; color: var(--paper); background: var(--ink); }
 .rules-ready { width: 100%; height: 50px; color: var(--ink); border: 0; background: var(--acid); cursor: pointer; font-weight: 700; }
 
+.leaderboard-panel {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(470px, 100%);
+  padding: 96px 34px 32px;
+  overflow-y: auto;
+  color: var(--ink);
+  background: #d9ff43;
+  box-shadow: -24px 0 80px rgba(0,0,0,.42);
+}
+.leaderboard-panel[hidden] { display: none; }
+.leaderboard-close {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  width: 40px;
+  height: 40px;
+  color: var(--ink);
+  border: 1px solid rgba(9,11,15,.42);
+  background: transparent;
+  cursor: pointer;
+  font-size: 24px;
+}
+.leaderboard-panel .eyebrow { color: #50572d; }
+.leaderboard-panel h2 { margin: 0 0 24px; font-size: 42px; line-height: 1.08; }
+.my-game-ranking { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 28px; border: 1px solid rgba(9,11,15,.3); }
+.my-game-ranking div { display: grid; gap: 8px; padding: 14px; }
+.my-game-ranking div + div { border-left: 1px solid rgba(9,11,15,.3); }
+.my-game-ranking span { color: #59602e; font-size: 10px; }
+.my-game-ranking strong { font: 500 24px ui-monospace, "SFMono-Regular", Consolas, monospace; }
+
 .orbit-mission-hud {
   position: absolute;
   z-index: 4;
@@ -272,6 +306,18 @@ a { color: inherit; text-decoration: none; }
 .start-screen > p:first-of-type { margin: 0; color: var(--acid); font: 11px ui-monospace, "SFMono-Regular", Consolas, monospace; }
 .start-screen h2 { margin: 16px 0; font-size: clamp(54px, 9vw, 112px); line-height: 1; letter-spacing: 0; }
 .start-copy { width: min(420px, calc(100% - 48px)); margin: 0 0 28px; color: rgba(255,255,255,.68); font-size: 14px; line-height: 1.8; }
+.player-identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: -12px 0 20px;
+  padding: 7px 10px;
+  border: 1px solid rgba(217,255,67,.46);
+  background: rgba(9,11,15,.56);
+  font-size: 10px;
+}
+.player-identity span { color: rgba(255,255,255,.5); }
+.player-identity strong { color: var(--acid); font-size: 11px; }
 .start-screen button, .result-panel button {
   height: 50px;
   padding: 0 28px;
@@ -291,6 +337,13 @@ a { color: inherit; text-decoration: none; }
   font-size: 12px;
 }
 .secondary-calendar-link:hover { color: var(--acid); border-color: var(--acid); }
+.result-panel .secondary-ranking-button {
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.42);
+  background: rgba(9,11,15,.72);
+  font-size: 12px;
+}
+.result-panel .secondary-ranking-button:hover { color: var(--acid); border-color: var(--acid); }
 
 .result-panel { background: rgba(9,11,15,.76); }
 .result-panel p { margin: 0; color: var(--acid); font: 11px ui-monospace, "SFMono-Regular", Consolas, monospace; }
@@ -316,6 +369,40 @@ a { color: inherit; text-decoration: none; }
 .series-stats div { display: grid; grid-template-columns: 72px 1fr; align-items: baseline; padding: 15px 0; border-bottom: 1px solid #b9bcb4; }
 .series-stats strong { font: 500 25px ui-monospace, "SFMono-Regular", Consolas, monospace; }
 .series-stats span { color: #62655e; font-size: 12px; }
+
+.global-ranking-section {
+  padding: 92px 32px 104px;
+  color: #f3f4ef;
+  background: #111518;
+}
+.global-ranking-heading { display: grid; grid-template-columns: 1fr minmax(260px, 380px); align-items: end; gap: 64px; margin-bottom: 46px; }
+.global-ranking-heading .eyebrow { color: var(--acid); }
+.global-ranking-heading h2 { margin: 0; font-size: clamp(42px, 6vw, 78px); line-height: 1; }
+.global-ranking-heading > div:first-child > p:last-child { max-width: 600px; margin: 20px 0 0; color: rgba(255,255,255,.56); font-size: 13px; line-height: 1.8; }
+.my-global-ranking { display: grid; gap: 8px; padding: 18px; border: 1px solid rgba(217,255,67,.5); background: rgba(217,255,67,.05); }
+.my-global-ranking > span { color: rgba(255,255,255,.46); font-size: 10px; }
+.my-global-ranking > strong { color: var(--acid); font-size: 22px; }
+.my-global-ranking div { display: flex; gap: 20px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.16); color: rgba(255,255,255,.58); font-size: 11px; }
+.my-global-ranking b { color: #fff; font: 500 13px ui-monospace, "SFMono-Regular", Consolas, monospace; }
+.ranking-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid currentColor; }
+.ranking-row { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 16px; min-height: 62px; border-bottom: 1px solid rgba(255,255,255,.15); }
+.ranking-position { color: rgba(255,255,255,.42); font: 11px ui-monospace, "SFMono-Regular", Consolas, monospace; }
+.ranking-row > div { display: grid; gap: 3px; }
+.ranking-row > div strong { font-size: 14px; }
+.ranking-row > div small { color: rgba(255,255,255,.38); font-size: 9px; }
+.ranking-row > b { color: var(--acid); font: 500 15px ui-monospace, "SFMono-Regular", Consolas, monospace; }
+.ranking-row.is-me { padding: 0 12px; background: rgba(217,255,67,.1); }
+.ranking-empty { padding: 32px 0; color: rgba(255,255,255,.44); border-bottom: 1px solid rgba(255,255,255,.15); font-size: 12px; }
+.ranking-status { margin: 18px 0 0; color: rgba(255,255,255,.38); font-size: 10px; }
+.ranking-status.failed { color: #ff886f; }
+.leaderboard-panel .ranking-list { border-color: rgba(9,11,15,.6); }
+.leaderboard-panel .ranking-row { border-color: rgba(9,11,15,.2); }
+.leaderboard-panel .ranking-position, .leaderboard-panel .ranking-row > div small { color: rgba(9,11,15,.48); }
+.leaderboard-panel .ranking-row > b { color: var(--ink); }
+.leaderboard-panel .ranking-row.is-me { background: rgba(9,11,15,.1); }
+.leaderboard-panel .ranking-empty { color: rgba(9,11,15,.58); border-color: rgba(9,11,15,.2); }
+.leaderboard-panel .ranking-status { color: rgba(9,11,15,.55); }
+.leaderboard-panel .ranking-status.failed { color: #a62c18; }
 
 .calendar-section { padding: 96px 32px 120px; color: var(--ink); background: #d8d9d1; }
 .calendar-heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 48px; }
@@ -373,7 +460,7 @@ footer > a { color: var(--acid); font-size: 11px; }
 @media (max-width: 850px) {
   .game-hero { height: 92svh; min-height: 620px; }
   .topbar { padding: 18px 20px; }
-  .rules-trigger { min-width: 58px; padding: 0 9px; }
+  .rules-trigger, .leaderboard-trigger { min-width: 58px; padding: 0 9px; }
   .rules-trigger span { display: none; }
   .calendar-link { min-width: 158px; min-height: 46px; padding: 7px 10px; }
   .game-info { top: 92px; left: 20px; }
@@ -395,6 +482,8 @@ footer > a { color: var(--acid); font-size: 11px; }
   .scroll-cue { display: none; }
   .manifesto { grid-template-columns: 1fr; gap: 32px; padding: 72px 20px; }
   .series-stats { width: 100%; }
+  .global-ranking-section { padding: 72px 20px 84px; }
+  .global-ranking-heading { grid-template-columns: 1fr; gap: 30px; }
   .calendar-section { padding: 72px 20px 90px; }
   .calendar-heading { align-items: start; flex-direction: column; gap: 24px; }
   .calendar-meta { width: 100%; grid-template-columns: auto 150px; justify-content: space-between; }
@@ -415,11 +504,13 @@ footer > a { color: var(--acid); font-size: 11px; }
   .topbar .brand { gap: 8px; font-size: 12px; }
   .brand-mark { width: 46px; }
   .topbar-actions { gap: 6px; }
-  .rules-trigger { min-width: 48px; padding: 0 7px; font-size: 11px; }
-  .calendar-link { min-width: 136px; min-height: 44px; gap: 8px; }
+  .rules-trigger, .leaderboard-trigger { min-width: 44px; padding: 0 6px; font-size: 10px; }
+  .calendar-link { min-width: 116px; min-height: 44px; gap: 7px; padding: 6px 8px; }
   .calendar-link-copy strong { font-size: 11px; }
   .rules-panel { padding: 82px 22px 26px; }
   .rules-panel h2 { font-size: 38px; }
+  .leaderboard-panel { padding: 82px 20px 26px; }
+  .leaderboard-panel h2 { font-size: 36px; }
   .start-screen h2 { font-size: 54px; }
   .start-copy { font-size: 12px; }
   .manifesto-copy h2 { font-size: 42px; }

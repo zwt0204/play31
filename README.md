@@ -6,7 +6,7 @@
 
 https://zwt.qzz.io/play31/
 
-17 款游戏均使用 Three.js 实时渲染，并具备明确通关目标、得分、生命、连击、最佳成绩、成功/失败反馈和移动端触控操作。
+17 款游戏均使用 Three.js 实时渲染，并具备明确通关目标、得分、生命、连击、最佳成绩、成功/失败反馈和移动端触控操作。首次进入会生成持久化随机玩家代号，首页展示总游玩次数榜，每款游戏展示独立最高分榜。
 
 ## 已实现玩法
 
@@ -59,5 +59,8 @@ npm run build
 - Three.js
 - 原生 JavaScript、CSS
 - Cloudflare Tunnel
+- FastAPI + SQLite 排行榜
+
+排行榜路由位于 `server/leaderboard.py`，默认数据库位于 `data/play31_leaderboard.sqlite3`，可使用 `PLAY31_LEADERBOARD_DB` 环境变量覆盖。
 
 系列选题、公众号文章模板和发布节奏参见 [SERIES_PLAN.md](./SERIES_PLAN.md)。

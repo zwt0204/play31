@@ -300,6 +300,7 @@ export function createOrbitGame(ui) {
     ui.finalScore.textContent = String(score);
     ui.resultCopy.textContent = `${stars}　${reason} · 最佳 ${bestScore}`;
     ui.resultPanel.hidden = false;
+    ui.onRoundEnd?.(score);
   }
 
   function startRound() {
@@ -319,6 +320,7 @@ export function createOrbitGame(ui) {
     ui.resultPanel.hidden = true;
     resetPackage();
     updateHud();
+    ui.onRoundStart?.();
   }
 
   function updatePackage(delta) {

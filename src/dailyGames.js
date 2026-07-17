@@ -167,6 +167,7 @@ export function createDailyGame(day, ui) {
       : state.score >= 4 ? '手感不错，再挑战一次更高分。' : '再试一次，先观察场景运动的节奏。';
     ui.resultCopy.textContent = `${summary} · 最佳 ${bestScore}`;
     ui.resultPanel.hidden = false;
+    ui.onRoundEnd?.(state.score);
   }
 
   function startRound() {
@@ -187,6 +188,7 @@ export function createDailyGame(day, ui) {
     ui.powerFill.style.width = '0%';
     game.reset?.();
     updateHud();
+    ui.onRoundStart?.();
   }
 
   function normalizedPointer(event) {
