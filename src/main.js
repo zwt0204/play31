@@ -415,8 +415,14 @@ const gameUi = {
     resultCopy: document.querySelector('#result-copy'),
     toast: document.querySelector('#game-toast'),
     gestureHint,
-    onRoundStart: leaderboard.startRound,
-    onRoundEnd: leaderboard.endRound
+    onRoundStart: () => {
+      document.querySelector('.game-hero').classList.add('is-playing');
+      leaderboard.startRound();
+    },
+    onRoundEnd: (score) => {
+      document.querySelector('.game-hero').classList.remove('is-playing');
+      leaderboard.endRound(score);
+    }
 };
 
 if (selectedDay === 1) {
