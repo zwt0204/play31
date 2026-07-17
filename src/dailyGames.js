@@ -72,7 +72,7 @@ export function createDailyGame(day, ui) {
     shake: 0
   };
 
-  const game = setupGame(day, config, world, scene, state);
+  const game = setupGame(day, config, world, scene, state, camera);
 
   function updateHud() {
     ui.scoreElement.textContent = String(state.score).padStart(3, '0');
@@ -326,7 +326,7 @@ function addBackdrop(world, config) {
   world.add(new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xb5c9c1, size: 0.04, transparent: true, opacity: 0.6 })));
 }
 
-function setupGame(day, config, world, scene, state) {
+function setupGame(day, config, world, scene, state, camera) {
   if (config.type === 'timing') return setupTiming(day, config, world, state);
   if (config.type === 'stack') return setupStack(config, world, state);
   if (config.type === 'blast') return setupBlast(config, world, state);
@@ -336,7 +336,7 @@ function setupGame(day, config, world, scene, state) {
   if (config.type === 'toggle') return setupToggle(day, config, world, state);
   if (config.type === 'aim') return setupAim(day, config, world, state);
   if (config.type === 'hold') return setupHold(config, world, state);
-  if (config.type === 'puzzle') return setupPuzzle(config, world, state);
+  if (config.type === 'puzzle') return setupPuzzle(config, world, state, camera);
   return setupShadow(config, world, scene, state);
 }
 
@@ -1338,96 +1338,201 @@ function setupHold(config, world, state) {
   };
 }
 
-function setupPuzzle(config, world, state) {
+function setupPuzzle(config, world, state, camera) {
   const group = new THREE.Group();
   world.add(group);
   const mirrors = [];
-  const desired = [1, 2, 0];
+  const hitAreas = [];
+  const desiredPatterns = [[1, 2, 3], [3, 1, 2], [2, 3, 1]];
+  const desired = [...desiredPatterns[0]];
   const orientations = [0, 0, 0];
+  const locked = [false, false, false];
+
+  const source = new THREE.Group();
+  const sourceCore = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 14), material(config.secondary));
+  const sourceRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.52, 0.045, 8, 40),
+    new THREE.MeshBasicMaterial({ color: config.secondary })
+  );
+  source.position.set(-4.5, 0.65, -3.7);
+  source.add(sourceCore, sourceRing);
+  group.add(source);
+
   for (let i = 0; i < 3; i += 1) {
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.25, 0.14), material(config.accent));
-    const mirror = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.08, 0.82), material(0xddefff));
-    const clickHalo = new THREE.Mesh(
-      new THREE.TorusGeometry(0.82, 0.045, 8, 38),
-      new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.62 })
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.72, 0.72, 0.12, 32),
+      new THREE.MeshStandardMaterial({ color: 0x182323, metalness: 0.55, roughness: 0.5 })
     );
+    base.rotation.x = Math.PI / 2;
+    const mirror = new THREE.Mesh(
+      new THREE.BoxGeometry(1.12, 0.12, 0.22),
+      new THREE.MeshPhysicalMaterial({
+        color: 0xe9fbff,
+        emissive: 0xbfeeff,
+        emissiveIntensity: 0.35,
+        metalness: 0.9,
+        roughness: 0.08,
+        clearcoat: 1
+      })
+    );
+    mirror.position.z = 0.12;
+    const targetGuide = new THREE.Mesh(
+      new THREE.BoxGeometry(1.38, 0.055, 0.12),
+      new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.48, depthTest: false })
+    );
+    targetGuide.position.z = 0.2;
+    targetGuide.renderOrder = 4;
+    const clickHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.88, 0.055, 8, 42),
+      new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.18 })
+    );
+    clickHalo.position.z = 0.08;
+    const hitArea = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.9, 1.9),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    hitArea.position.z = 0.3;
+    hitArea.userData.index = i;
     const holder = new THREE.Group();
-    holder.position.set((i - 1) * 2.8, -0.35 + Math.abs(i - 1) * 0.7, -3.5 - i * 0.7);
-    holder.add(frame, mirror, clickHalo);
+    holder.position.set((i - 1) * 2.75, i === 1 ? 0.25 : -0.72, -3.8);
+    holder.add(base, mirror, targetGuide, clickHalo, hitArea);
     group.add(holder);
     mirrors.push(holder);
+    hitAreas.push(hitArea);
   }
-  const nodes = [];
-  for (let i = 0; i < 4; i += 1) {
-    const node = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 12), material(i === 0 ? config.secondary : 0x39423e));
-    node.position.set(-4.3 + i * 2.85, 1.65, -4.2);
-    group.add(node);
-    nodes.push(node);
-  }
+
+  const receiver = new THREE.Group();
+  const receiverCore = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 14), material(0x39423e));
+  const receiverRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.62, 0.07, 8, 44),
+    new THREE.MeshBasicMaterial({ color: 0x39423e })
+  );
+  receiver.position.set(4.5, 0.65, -3.7);
+  receiver.add(receiverCore, receiverRing);
+  group.add(receiver);
+
+  const activeArrow = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 12), material(config.secondary));
+  activeArrow.rotation.z = Math.PI;
+  group.add(activeArrow);
+
   const beamGeometry = new THREE.BufferGeometry();
-  const beam = new THREE.Line(beamGeometry, new THREE.LineBasicMaterial({ color: config.secondary, linewidth: 2 }));
+  const beam = new THREE.Line(
+    beamGeometry,
+    new THREE.LineBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.92 })
+  );
   group.add(beam);
+
+  const raycaster = new THREE.Raycaster();
   let moves = 0;
+  let activeIndex = 0;
+  let round = 0;
+  let roundPause = 0;
+  let failedRound = false;
   let callbacks = null;
 
+  function setPower() {
+    const fill = document.querySelector('#power-fill');
+    if (fill) fill.style.width = `${Math.round((activeIndex / 3) * 100)}%`;
+  }
+
+  function resetRound(nextPattern = false) {
+    if (nextPattern) round += 1;
+    desired.splice(0, desired.length, ...desiredPatterns[round % desiredPatterns.length]);
+    orientations.fill(0);
+    locked.fill(false);
+    moves = 0;
+    activeIndex = 0;
+    roundPause = 0;
+    failedRound = false;
+    setPower();
+    refresh();
+  }
+
   function refresh() {
-    mirrors.forEach((mirror, i) => {
-      mirror.rotation.z = orientations[i] * Math.PI / 4;
-      mirror.children[0].material.emissiveIntensity = orientations[i] === desired[i] ? 1.8 : 0.35;
+    mirrors.forEach((holder, i) => {
+      const actualMirror = holder.children[1];
+      const targetGuide = holder.children[2];
+      const clickHalo = holder.children[3];
+      actualMirror.rotation.z = orientations[i] * Math.PI / 4;
+      targetGuide.rotation.z = desired[i] * Math.PI / 4;
+      targetGuide.material.opacity = locked[i] ? 0 : i === activeIndex ? 0.72 : 0.2;
+      actualMirror.material.emissive.setHex(locked[i] ? config.secondary : 0xbfeeff);
+      actualMirror.material.emissiveIntensity = locked[i] ? 1.9 : i === activeIndex ? 0.95 : 0.18;
+      clickHalo.material.opacity = locked[i] ? 0.3 : i === activeIndex ? 0.92 : 0.12;
+      clickHalo.material.color.setHex(locked[i] ? config.accent : config.secondary);
+      holder.scale.setScalar(i === activeIndex && roundPause <= 0 ? 1.08 : 1);
     });
-    const correct = orientations.map((value, i) => value === desired[i]);
-    nodes.forEach((node, i) => {
-      const lit = i === 0 || correct.slice(0, i).every(Boolean);
-      node.material.color.setHex(lit ? config.secondary : 0x39423e);
-      node.material.emissive.setHex(lit ? config.secondary : 0x111111);
-    });
-    const points = [new THREE.Vector3(-4.3, 1.65, -4.2)];
-    mirrors.forEach((mirror, i) => {
-      points.push(mirror.position.clone());
-      if (!correct[i]) points.push(mirror.position.clone().add(new THREE.Vector3(0, -1.6, 0)));
-    });
-    if (correct.every(Boolean)) points.push(new THREE.Vector3(4.3, 1.65, -4.2));
-    beam.geometry.setFromPoints(points);
-    if (correct.every(Boolean) && callbacks) {
-      callbacks.hit(3);
-      moves = 0;
-      desired.forEach((_, i) => { desired[i] = (desired[i] + 1 + i) % 4; });
-      orientations.fill(0);
-    } else if (moves >= 9 && callbacks) {
-      callbacks.miss();
-      moves = 0;
-      orientations.fill(0);
+
+    const points = [source.position.clone()];
+    for (let i = 0; i < mirrors.length; i += 1) {
+      points.push(mirrors[i].position.clone());
+      if (!locked[i]) {
+        const angle = orientations[i] * Math.PI / 4;
+        points.push(mirrors[i].position.clone().add(new THREE.Vector3(Math.cos(angle) * 0.85, Math.sin(angle) * 0.85, 0)));
+        break;
+      }
     }
+    if (locked.every(Boolean)) points.push(receiver.position.clone());
+    beam.geometry.setFromPoints(points);
+    receiverCore.material.color.setHex(locked.every(Boolean) ? config.secondary : 0x39423e);
+    receiverCore.material.emissive.setHex(locked.every(Boolean) ? config.secondary : 0x111111);
+    receiverRing.material.color.setHex(locked.every(Boolean) ? config.secondary : 0x39423e);
+
+    const activeMirror = mirrors[Math.min(activeIndex, 2)];
+    activeArrow.visible = activeIndex < 3 && roundPause <= 0;
+    if (activeArrow.visible) activeArrow.position.copy(activeMirror.position).add(new THREE.Vector3(0, 1.35, 0.15));
+    setPower();
+  }
+
+  function rotateActive() {
+    if (!callbacks || roundPause > 0 || activeIndex >= 3) return;
+    orientations[activeIndex] = (orientations[activeIndex] + 1) % 4;
+    moves += 1;
+    if (orientations[activeIndex] === desired[activeIndex]) {
+      locked[activeIndex] = true;
+      activeIndex += 1;
+      callbacks.hit(1);
+      if (activeIndex >= 3) roundPause = 0.85;
+    } else if (moves >= 12) {
+      failedRound = true;
+      roundPause = 0.7;
+      callbacks.miss();
+    }
+    refresh();
   }
 
   return {
     reset() {
-      orientations.fill(0);
-      moves = 0;
-      refresh();
+      round = 0;
+      resetRound();
     },
     pointerDown(point) {
-      const index = Math.max(0, Math.min(2, Math.floor(((point.x + 1) / 2) * 3)));
-      orientations[index] = (orientations[index] + 1) % 4;
-      moves += 1;
-      refresh();
+      raycaster.setFromCamera(new THREE.Vector2(point.x, point.y), camera);
+      const hit = raycaster.intersectObjects(hitAreas, false)[0];
+      if (hit?.object.userData.index === activeIndex) rotateActive();
     },
-    controlDown() {
-      const index = moves % 3;
-      orientations[index] = (orientations[index] + 1) % 4;
-      moves += 1;
-      refresh();
-    },
+    controlDown: rotateActive,
     update(delta, elapsed, cb) {
       callbacks = cb;
-      nodes.forEach((node, i) => { node.scale.setScalar(1 + Math.sin(elapsed * 3 + i) * 0.08); });
-      mirrors.forEach((mirror, i) => {
-        mirror.children[2].scale.setScalar(1 + Math.sin(elapsed * 2.4 + i) * 0.08);
-        mirror.children[2].rotation.z += delta * 0.24;
+      sourceRing.rotation.z -= delta * 0.8;
+      receiverRing.rotation.z += delta * 0.55;
+      if (activeIndex < 3) activeArrow.position.y = mirrors[activeIndex].position.y + 1.35 + Math.sin(elapsed * 5) * 0.08;
+      mirrors.forEach((holder, i) => {
+        const halo = holder.children[3];
+        halo.rotation.z += delta * (i === activeIndex ? 0.8 : 0.2);
+        if (i === activeIndex) halo.scale.setScalar(1 + Math.sin(elapsed * 4.2) * 0.06);
       });
+      if (roundPause > 0) {
+        roundPause -= delta;
+        if (roundPause <= 0 && !state.completed) resetRound(!failedRound);
+      }
     },
     idle(delta, elapsed) {
-      mirrors.forEach((mirror, i) => { mirror.rotation.y = Math.sin(elapsed * 0.7 + i) * 0.12; });
+      sourceRing.rotation.z -= delta * 0.8;
+      receiverRing.rotation.z += delta * 0.45;
+      mirrors.forEach((holder) => {
+        holder.children[3].rotation.z += delta * 0.22;
+      });
     }
   };
 }
