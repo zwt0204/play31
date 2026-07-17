@@ -39,7 +39,17 @@ const playableDetails = {
   13: { description: '在低重力月面上，用最少杆数进洞。', instruction: '从月球向后拖动设置方向和力量，松手击球。注意月球重力更小。', control: '拖动瞄准 · 松手击球' },
   14: { description: '切换潜航器颜色，穿过迎面而来的同色水门。', instruction: '观察最前方水门颜色，点击依次切换红、黄、青；颜色一致时才能安全通过。', control: '点击切换当前颜色' },
   15: { description: '借助风力，把快递送进漂浮的收件环。', instruction: '按住增强风力让包裹上升，松开后滑翔。连续穿环即可加分。', control: '按住送风 · 松开滑翔' },
-  16: { description: '踩着弹簧屋顶，在微缩城市里向上攀登。', instruction: '点击触发下一次弹跳，落在屋顶中央可获得更高弹力。', control: '点击触发弹跳' }
+  16: { description: '踩着弹簧屋顶，在微缩城市里向上攀登。', instruction: '点击触发下一次弹跳，落在屋顶中央可获得更高弹力。', control: '点击触发弹跳' },
+  17: {
+    description: '旋转中央镜面，用反射光持续追踪移动目标。',
+    instruction: '在画面中按住并上下拖动镜面，让黄色反射光锁定右侧目标；保持到锁定环填满即可得分。',
+    control: '按住上下拖动镜面',
+    rules: [
+      '手指或鼠标按住画面，上下拖动，改变中央镜面的反射角度。',
+      '让黄色反射光落在右侧移动光球上，并持续保持到锁定进度填满。',
+      '目标会逐渐加速并缩小；长时间没有完成锁定会损失一次机会。'
+    ]
+  }
 };
 
 const now = new Date();
@@ -55,7 +65,7 @@ const monthLabel = `${seriesYear}年${seriesMonth}月`;
 const monthDayCount = new Date(seriesYear, seriesMonth, 0).getDate();
 const monthlyGames = games.slice(0, monthDayCount);
 const requestedDay = Number(new URLSearchParams(window.location.search).get('day'));
-const selectedDay = Number.isInteger(requestedDay) && requestedDay >= 1 && requestedDay <= 16 ? requestedDay : 1;
+const selectedDay = Number.isInteger(requestedDay) && requestedDay >= 1 && requestedDay <= 17 ? requestedDay : 1;
 const selectedGame = games[selectedDay - 1];
 const selectedDetails = playableDetails[selectedDay];
 const selectedDayLabel = String(selectedDay).padStart(2, '0');
@@ -63,11 +73,11 @@ const meterLabels = {
   1: '发射力度', 2: '反弹时机', 3: '接线进度', 4: '落点窗口',
   5: '航行状态', 6: '磁极状态', 7: '航线状态', 8: '影子匹配',
   9: '投球力度', 10: '隧道速度', 11: '连锁能量', 12: '重力方向',
-  13: '击球力度', 14: '当前颜色', 15: '风力高度', 16: '弹跳时机'
+  13: '击球力度', 14: '当前颜色', 15: '风力高度', 16: '弹跳时机', 17: '追光锁定'
 };
-const canvasPrimaryDays = new Set([3, 5, 7, 8, 9, 10, 11, 13]);
+const canvasPrimaryDays = new Set([3, 5, 7, 8, 9, 10, 11, 13, 17]);
 const canvasPrimary = canvasPrimaryDays.has(selectedDay);
-const gestureIcons = { 3: '◎', 5: '↔', 7: '↕', 8: '↔', 9: '⌁', 10: '↔', 11: '◎', 13: '⌁' };
+const gestureIcons = { 3: '◎', 5: '↔', 7: '↕', 8: '↔', 9: '⌁', 10: '↔', 11: '◎', 13: '⌁', 17: '↕' };
 document.title = `Day ${selectedDayLabel} · ${selectedGame[0]} | 一日一游`;
 document.querySelector('meta[name="description"]')?.setAttribute('content', selectedDetails.description);
 const rules = selectedDetails.rules || [
@@ -79,7 +89,7 @@ const rules = selectedDetails.rules || [
 const gameCards = monthlyGames.map((game, index) => {
   const day = String(index + 1).padStart(2, '0');
   const dayNumber = index + 1;
-  const isPlayable = dayNumber <= 16;
+  const isPlayable = dayNumber <= 17;
   const state = dayNumber === selectedDay ? 'today' : isPlayable ? 'published' : 'locked';
   const stateText = dayNumber === selectedDay ? '正在玩' : isPlayable ? '现在可玩' : '待解锁';
   const tag = isPlayable ? 'a' : 'article';
@@ -170,7 +180,7 @@ document.querySelector('#app').innerHTML = `
         <span id="result-copy">再试一次，找到轨道的节奏。</span>
         <div class="start-actions">
           <button id="restart-button" type="button">再来一局</button>
-          <a class="secondary-calendar-link" href="#calendar">浏览其他 15 款已发布游戏</a>
+          <a class="secondary-calendar-link" href="#calendar">浏览其他 16 款已发布游戏</a>
         </div>
       </div>
 
@@ -206,7 +216,7 @@ document.querySelector('#app').innerHTML = `
       <div class="filter-row" aria-label="游戏分类">
         <button class="active" type="button" data-filter="all">全部 ${monthDayCount}</button>
         <button type="button" data-filter="week">第一周</button>
-        <button type="button" data-filter="today">已发布 16</button>
+        <button type="button" data-filter="today">已发布 17</button>
       </div>
       <div class="game-grid">${gameCards}</div>
     </section>
@@ -228,7 +238,7 @@ filterButtons.forEach((button) => {
     button.classList.add('active');
     const filter = button.dataset.filter;
     cards.forEach((card, index) => {
-      card.hidden = filter === 'today' ? index > 15 : filter === 'week' ? index > 6 : false;
+      card.hidden = filter === 'today' ? index > 16 : filter === 'week' ? index > 6 : false;
     });
   });
 });

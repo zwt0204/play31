@@ -15,7 +15,8 @@ const CONFIGS = {
   13: { type: 'aim', goal: 6, accent: 0xe9edf1, secondary: 0x9dff76, shape: 'golf' },
   14: { type: 'toggle', goal: 10, accent: 0xff5b3d, secondary: 0x35d8d1, states: 3, shape: 'color' },
   15: { type: 'hold', goal: 10, accent: 0x55dff2, secondary: 0xffd45e },
-  16: { type: 'spring', goal: 8, accent: 0xd9ff43, secondary: 0xff75a8 }
+  16: { type: 'spring', goal: 8, accent: 0xd9ff43, secondary: 0xff75a8 },
+  17: { type: 'reflect', goal: 8, accent: 0xffd85a, secondary: 0x63e0d8 }
 };
 
 export function createDailyGame(day, ui) {
@@ -330,6 +331,7 @@ function setupGame(day, config, world, scene, state) {
   if (config.type === 'stack') return setupStack(config, world, state);
   if (config.type === 'blast') return setupBlast(config, world, state);
   if (config.type === 'spring') return setupSpring(config, world, state);
+  if (config.type === 'reflect') return setupReflect(config, world, state);
   if (config.type === 'steer') return setupSteer(day, config, world, state);
   if (config.type === 'toggle') return setupToggle(day, config, world, state);
   if (config.type === 'aim') return setupAim(day, config, world, state);
@@ -648,6 +650,157 @@ function setupSpring(config, world, state) {
       player.rotation.y += delta;
     }
   };
+}
+
+function setupReflect(config, world, state) {
+  const group = new THREE.Group();
+  world.add(group);
+  const depth = -3.5;
+
+  const source = new THREE.Mesh(new THREE.SphereGeometry(0.38, 24, 16), material(config.accent));
+  source.position.set(-4.1, -0.15, depth);
+  const sourceHalo = new THREE.Mesh(
+    new THREE.TorusGeometry(0.62, 0.05, 8, 42),
+    new THREE.MeshBasicMaterial({ color: config.accent, transparent: true, opacity: 0.72 })
+  );
+  sourceHalo.position.copy(source.position);
+  group.add(source, sourceHalo);
+
+  const mirrorGroup = new THREE.Group();
+  mirrorGroup.position.set(0, -0.15, depth);
+  const mirror = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8, 0.16, 0.82),
+    new THREE.MeshPhysicalMaterial({ color: 0xdff8ff, metalness: 0.92, roughness: 0.08, clearcoat: 1 })
+  );
+  const mirrorFrame = new THREE.Mesh(new THREE.TorusGeometry(1.08, 0.055, 8, 48), material(config.secondary));
+  mirrorGroup.add(mirror, mirrorFrame);
+  group.add(mirrorGroup);
+
+  const targetGroup = new THREE.Group();
+  targetGroup.position.set(3.65, 0, depth);
+  const target = new THREE.Mesh(new THREE.SphereGeometry(0.34, 22, 14), material(config.secondary));
+  const targetRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.66, 0.08, 10, 48),
+    new THREE.MeshBasicMaterial({ color: config.secondary })
+  );
+  const lockRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.88, 0.035, 8, 52),
+    new THREE.MeshBasicMaterial({ color: config.accent, transparent: true, opacity: 0.28 })
+  );
+  targetGroup.add(target, targetRing, lockRing);
+  group.add(targetGroup);
+
+  const incomingBeam = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([source.position, mirrorGroup.position]),
+    new THREE.LineBasicMaterial({ color: config.accent, transparent: true, opacity: 0.85 })
+  );
+  const outgoingBeam = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([mirrorGroup.position, new THREE.Vector3(4.8, 0, depth)]),
+    new THREE.LineBasicMaterial({ color: config.accent, transparent: true, opacity: 0.2 })
+  );
+  group.add(incomingBeam, outgoingBeam);
+
+  const orbitGuide = new THREE.Mesh(
+    new THREE.TorusGeometry(2.05, 0.018, 6, 72),
+    new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.22 })
+  );
+  orbitGuide.position.set(3.65, 0, depth - 0.15);
+  orbitGuide.scale.x = 0.22;
+  group.add(orbitGuide);
+
+  let angle = 0;
+  let targetPhase = 0;
+  let lockTime = 0;
+  let searchTime = 0;
+  let callbacks = null;
+
+  function setAim(point) {
+    angle = THREE.MathUtils.clamp(point.y * 0.72, -0.68, 0.68);
+  }
+
+  function updateBeam() {
+    const end = new THREE.Vector3(4.8, Math.tan(angle) * 4.8 - 0.15, depth);
+    outgoingBeam.geometry.setFromPoints([mirrorGroup.position, end]);
+    outgoingBeam.geometry.attributes.position.needsUpdate = true;
+    mirrorGroup.rotation.z = angle * 0.52;
+  }
+
+  return {
+    reset() {
+      angle = 0;
+      targetPhase = 0;
+      lockTime = 0;
+      searchTime = 0;
+      updateBeam();
+      outgoingBeam.material.opacity = 0.2;
+    },
+    pointerDown: setAim,
+    pointerMove(point) {
+      if (state.pointerDown) setAim(point);
+    },
+    pointerUp() {
+      outgoingBeam.material.opacity = 0.2;
+    },
+    update(delta, elapsed, cb) {
+      callbacks = cb;
+      const speed = 0.38 + state.score * 0.035;
+      const targetY = Math.sin(elapsed * speed + targetPhase) * 2.05;
+      targetGroup.position.y = targetY;
+      targetGroup.rotation.z += delta * (0.65 + state.score * 0.04);
+      sourceHalo.rotation.z -= delta * 0.8;
+      mirrorFrame.rotation.z += delta * 0.25;
+      updateBeam();
+
+      const beamYAtTarget = Math.tan(angle) * 3.65 - 0.15;
+      const distance = Math.abs(beamYAtTarget - targetY);
+      const tolerance = Math.max(0.32, 0.58 - state.score * 0.025);
+      const lockNeeded = 0.62 + state.score * 0.025;
+      const active = state.pointerDown;
+      outgoingBeam.material.opacity = active ? 0.95 : 0.2;
+
+      if (active && distance < tolerance) {
+        lockTime += delta;
+        searchTime = Math.max(0, searchTime - delta * 0.7);
+        targetRing.material.color.setHex(config.accent);
+        target.material.emissiveIntensity = 1.8;
+        if (lockTime >= lockNeeded) {
+          callbacks.hit(1);
+          targetPhase += 1.75 + state.score * 0.12;
+          lockTime = 0;
+          searchTime = 0;
+        }
+      } else {
+        lockTime = Math.max(0, lockTime - delta * 0.75);
+        searchTime += delta * (active ? 1 : 0.38);
+        targetRing.material.color.setHex(config.secondary);
+        target.material.emissiveIntensity = 0.65;
+      }
+
+      const progress = Math.min(1, lockTime / lockNeeded);
+      lockRing.material.opacity = 0.22 + progress * 0.78;
+      lockRing.scale.setScalar(1 + (1 - progress) * 0.28);
+      uiPower(progress);
+
+      if (searchTime > Math.max(4.8, 7.8 - state.score * 0.25)) {
+        callbacks.miss();
+        targetPhase += 1.15;
+        searchTime = 0;
+        lockTime = 0;
+      }
+    },
+    idle(delta, elapsed) {
+      angle = Math.sin(elapsed * 0.45) * 0.22;
+      targetGroup.position.y = Math.sin(elapsed * 0.38) * 2.05;
+      targetGroup.rotation.z += delta * 0.55;
+      sourceHalo.rotation.z -= delta * 0.8;
+      updateBeam();
+    }
+  };
+
+  function uiPower(progress) {
+    const fill = document.querySelector('#power-fill');
+    if (fill) fill.style.width = `${Math.round(progress * 100)}%`;
+  }
 }
 
 function setupTiming(day, config, world, state) {
