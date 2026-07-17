@@ -123,6 +123,30 @@ a { color: inherit; text-decoration: none; }
 .game-toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .game-toast.miss { color: #fff; background: var(--signal); }
 
+.gesture-hint {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  bottom: 125px;
+  transform: translate(-50%, 12px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 245px;
+  padding: 10px 14px;
+  border: 1px solid rgba(217,255,67,.6);
+  background: rgba(9,11,15,.82);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.gesture-hint[hidden] { display: none; }
+.gesture-hint.show { opacity: 1; transform: translate(-50%, 0); }
+.gesture-hint > span { color: var(--acid); font-size: 23px; }
+.gesture-hint div { display: grid; gap: 2px; }
+.gesture-hint small { color: rgba(255,255,255,.44); font-size: 8px; }
+.gesture-hint strong { font-size: 11px; font-weight: 500; }
+
 .rules-panel {
   position: absolute;
   z-index: 30;
@@ -220,6 +244,13 @@ a { color: inherit; text-decoration: none; }
 }
 .launch-button:active, .launch-button.charging { color: var(--ink); background: var(--acid); border-color: var(--acid); }
 .launch-icon { font-size: 18px; line-height: 1; }
+.launch-button.guide-only {
+  color: rgba(255,255,255,.66);
+  border-style: dashed;
+  background: rgba(9,11,15,.44);
+  pointer-events: none;
+}
+.launch-button.guide-only .launch-icon { color: var(--acid); }
 
 .start-screen, .result-panel {
   position: absolute;
@@ -356,6 +387,7 @@ footer > a { color: var(--acid); font-size: 11px; }
   .orbit-mission-hud .fuel-track { grid-column: 1 / -1; margin: 0; height: 3px; }
   .orbit-mission-hud .aim-readout { display: none; }
   .game-controls { bottom: 28px; width: calc(100% - 40px); flex-direction: column; gap: 12px; }
+  .gesture-hint { bottom: 132px; width: calc(100% - 40px); min-width: 0; }
   .power-wrap { width: 100%; }
   .launch-button { width: 100%; min-width: 0; }
   .scroll-cue { display: none; }

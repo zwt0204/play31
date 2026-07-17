@@ -25,19 +25,19 @@ const playableDetails = {
       '利用行星引力改变航线，在时间和三次机会耗尽前送达 5 笔订单。'
     ]
   },
-  2: { description: '在移动挡板间连续反弹，击中顶部货箱。', instruction: '观察弹板位置，点击释放小球。连续反弹次数越多，得分越高。', control: '点击释放弹球' },
-  3: { description: '旋转镜面，让光束依次点亮三个节点。', instruction: '点击场景中的镜面改变方向，在步数耗尽前接通所有能量节点。', control: '点击镜面旋转' },
+  2: { description: '对准下方弹板释放弹球，让它反弹击中顶部货箱。', instruction: '等待弹球移动到弹板正上方，再点击释放。落点越接近弹板中心，得分越高。', control: '点击释放弹球' },
+  3: { description: '依次旋转三面镜子，让光束接通顶部能量节点。', instruction: '点击带光环的镜面，每次旋转 45°。在 9 步以内让三面镜子全部亮起。', control: '点击发光镜面旋转' },
   4: { description: '抓准横向移动的瞬间，把方块稳稳叠高。', instruction: '点击放下移动中的方块。重叠越整齐，下一层保留的面积越大。', control: '点击放下方块' },
   5: { description: '驾驶一厘米飞船，从桌面障碍之间穿过去。', instruction: '在画面中左右拖动飞船，避开迎面而来的积木和文具。', control: '左右拖动飞船' },
   6: { description: '切换磁极，把能量球引导到出口。', instruction: '点击切换红蓝磁极。同性相斥、异性相吸，别让能量球碰到边界。', control: '点击切换磁极' },
   7: { description: '操控纸飞机穿过云层中的连续航门。', instruction: '在画面中拖动控制飞行方向，连续穿过航门获得连击分。', control: '拖动控制纸飞机' },
-  8: { description: '转动灯光，让物体投下指定形状的影子。', instruction: '左右拖动灯光调整角度，当影子与目标轮廓重合时保持一秒。', control: '拖动调整灯光' },
+  8: { description: '移动黄色灯光，让黑色影子贴合屏幕上的黄色轮廓。', instruction: '在画面中左右拖动灯光。黑影与黄色目标轮廓重合后保持一秒即可破案。', control: '左右拖动黄色灯光' },
   9: { description: '拖出方向和力度，一球击倒微型瓶阵。', instruction: '从保龄球向后拖动进行瞄准，松手后滚动。尽量一次击倒更多球瓶。', control: '拖动瞄准 · 松手投球' },
   10: { description: '在不断变形的霓虹隧道里保持航线。', instruction: '左右拖动飞行器穿过缺口。速度会逐渐提升，碰撞三次后结束。', control: '左右拖动穿越缺口' },
-  11: { description: '击中核心方块，引发一次漂亮的连锁爆破。', instruction: '点击发射脉冲。相邻同色方块会连锁爆开，用更少次数清空目标。', control: '点击方块发射脉冲' },
-  12: { description: '一键翻转重力，在上下平台之间奔跑。', instruction: '点击切换重力方向，让角色落在安全平台上并避开尖刺。', control: '点击翻转重力' },
+  11: { description: '点击相邻的同色方块，引发一次 3D 连锁爆破。', instruction: '直接点击两个以上相连的同色方块。一次消除越多，达到 20 分目标越快。', control: '点击同色方块爆破' },
+  12: { description: '一键翻转重力，让能量球移动到来临光环所在的平台。', instruction: '观察远处光环位于上方还是下方，提前点击切换重力，让能量球落到同一侧。', control: '点击翻转上下重力' },
   13: { description: '在低重力月面上，用最少杆数进洞。', instruction: '从月球向后拖动设置方向和力量，松手击球。注意月球重力更小。', control: '拖动瞄准 · 松手击球' },
-  14: { description: '切换潜航器颜色，穿过对应颜色的水门。', instruction: '点击依次切换红、黄、青三种颜色，只能穿过同色水门。', control: '点击切换颜色' },
+  14: { description: '切换潜航器颜色，穿过迎面而来的同色水门。', instruction: '观察最前方水门颜色，点击依次切换红、黄、青；颜色一致时才能安全通过。', control: '点击切换当前颜色' },
   15: { description: '借助风力，把快递送进漂浮的收件环。', instruction: '按住增强风力让包裹上升，松开后滑翔。连续穿环即可加分。', control: '按住送风 · 松开滑翔' },
   16: { description: '踩着弹簧屋顶，在微缩城市里向上攀登。', instruction: '点击触发下一次弹跳，落在屋顶中央可获得更高弹力。', control: '点击触发弹跳' }
 };
@@ -65,6 +65,9 @@ const meterLabels = {
   9: '投球力度', 10: '隧道速度', 11: '连锁能量', 12: '重力方向',
   13: '击球力度', 14: '当前颜色', 15: '风力高度', 16: '弹跳时机'
 };
+const canvasPrimaryDays = new Set([3, 5, 7, 8, 9, 10, 11, 13]);
+const canvasPrimary = canvasPrimaryDays.has(selectedDay);
+const gestureIcons = { 3: '◎', 5: '↔', 7: '↕', 8: '↔', 9: '⌁', 10: '↔', 11: '◎', 13: '⌁' };
 document.title = `Day ${selectedDayLabel} · ${selectedGame[0]} | 一日一游`;
 document.querySelector('meta[name="description"]')?.setAttribute('content', selectedDetails.description);
 const rules = selectedDetails.rules || [
@@ -122,6 +125,10 @@ document.querySelector('#app').innerHTML = `
       </div>
 
       <div class="game-toast" id="game-toast" aria-live="polite"></div>
+      <div class="gesture-hint" id="gesture-hint" hidden>
+        <span>${gestureIcons[selectedDay] || '◎'}</span>
+        <div><small>在游戏画面中操作</small><strong>${selectedDetails.control}</strong></div>
+      </div>
 
       <aside class="rules-panel" id="rules-panel" hidden aria-labelledby="rules-title">
         <button class="rules-close" id="rules-close" type="button" aria-label="关闭玩法说明">×</button>
@@ -135,13 +142,13 @@ document.querySelector('#app').innerHTML = `
         <button class="rules-ready" id="rules-ready" type="button">知道了，开始挑战</button>
       </aside>
 
-      <div class="game-controls">
+      <div class="game-controls ${canvasPrimary ? 'canvas-primary' : ''}">
         <div class="power-wrap">
           <span>${meterLabels[selectedDay]}</span>
           <div class="power-track"><i id="power-fill"></i></div>
         </div>
-        <button id="launch-button" class="launch-button" type="button">
-          <span class="launch-icon">↑</span>
+        <button id="launch-button" class="launch-button${canvasPrimary ? ' guide-only' : ''}" type="button" ${canvasPrimary ? 'aria-disabled="true" tabindex="-1"' : ''}>
+          <span class="launch-icon">${canvasPrimary ? gestureIcons[selectedDay] : '↑'}</span>
           <span>${selectedDetails.control}</span>
         </button>
       </div>
@@ -245,6 +252,18 @@ document.querySelector('#rules-trigger').addEventListener('click', () => setRule
 document.querySelector('#rules-close').addEventListener('click', () => setRulesOpen(false));
 document.querySelector('#rules-ready').addEventListener('click', () => setRulesOpen(false));
 
+const gestureHint = document.querySelector('#gesture-hint');
+if (canvasPrimary) {
+  document.querySelector('#start-button').addEventListener('click', () => {
+    gestureHint.hidden = false;
+    requestAnimationFrame(() => gestureHint.classList.add('show'));
+    window.setTimeout(() => gestureHint.classList.remove('show'), 4200);
+  });
+  document.querySelector('#game-canvas').addEventListener('pointerdown', () => {
+    gestureHint.classList.remove('show');
+  });
+}
+
 const gameUi = {
     canvas: document.querySelector('#game-canvas'),
     startButton: document.querySelector('#start-button'),
@@ -258,7 +277,8 @@ const gameUi = {
     powerFill: document.querySelector('#power-fill'),
     finalScore: document.querySelector('#final-score'),
     resultCopy: document.querySelector('#result-copy'),
-    toast: document.querySelector('#game-toast')
+    toast: document.querySelector('#game-toast'),
+    gestureHint
 };
 
 if (selectedDay === 1) {

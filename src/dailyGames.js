@@ -667,6 +667,19 @@ function setupTiming(day, config, world, state) {
   mover.position.set(0, 0.15, -3.1);
   group.add(mover);
 
+  let cargo = null;
+  if (config.shape === 'ball') {
+    cargo = new THREE.Group();
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.82, 0.9), material(config.accent));
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.86, 0.94), material(config.secondary));
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 12), material(config.secondary));
+    arrow.position.y = -0.78;
+    arrow.rotation.z = Math.PI;
+    cargo.position.set(0, 2.05, -3.1);
+    cargo.add(crate, strap, arrow);
+    group.add(cargo);
+  }
+
   const guide = new THREE.Mesh(
     new THREE.TorusGeometry(config.threshold, 0.035, 8, 64),
     new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.55 })
@@ -739,11 +752,16 @@ function setupTiming(day, config, world, state) {
         mover.position.y += Math.sin((0.55 - bounce) * Math.PI / 0.55) * delta * 7;
       }
       guide.rotation.z += delta * 0.5;
+      if (cargo) {
+        cargo.rotation.y = Math.sin(elapsed * 0.7) * 0.12;
+        cargo.children[2].position.y = -0.78 + Math.sin(elapsed * 4) * 0.12;
+      }
       if (day === 16) target.scale.y = 1 + Math.sin(elapsed * 5) * 0.18;
     },
     idle(delta, elapsed) {
       mover.position.x = Math.sin(elapsed * config.speed) * 3.15;
       mover.rotation.y += delta;
+      if (cargo) cargo.rotation.y += delta * 0.2;
     }
   };
 }
@@ -860,6 +878,8 @@ function setupToggle(day, config, world, state) {
   const orbit = new THREE.Mesh(new THREE.TorusGeometry(0.86, 0.055, 8, 48), new THREE.MeshBasicMaterial({ color: colors[0] }));
   orbit.position.copy(player.position);
   group.add(orbit);
+  let gravityArrow = null;
+  const stateIndicators = [];
   if (config.shape === 'magnet') {
     const poleA = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 2.5, 18), material(colors[0]));
     const poleB = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 2.5, 18), material(colors[1]));
@@ -875,6 +895,19 @@ function setupToggle(day, config, world, state) {
     lower.position.set(0, -2.35, -3.6);
     upper.position.set(0, 2.35, -3.6);
     group.add(lower, upper);
+    gravityArrow = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.68, 12), material(config.accent));
+    gravityArrow.position.set(1.15, player.position.y, 1.9);
+    gravityArrow.rotation.z = Math.PI;
+    group.add(gravityArrow);
+  }
+  if (config.shape === 'color') {
+    colors.forEach((color, index) => {
+      const indicator = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 10), material(color));
+      indicator.position.set((index - 1) * 0.55, 1.75, 1.7);
+      indicator.scale.setScalar(index === 0 ? 1.5 : 0.8);
+      group.add(indicator);
+      stateIndicators.push(indicator);
+    });
   }
 
   const gates = [];
@@ -893,7 +926,9 @@ function setupToggle(day, config, world, state) {
     player.material.color.setHex(colors[currentState]);
     player.material.emissive.setHex(colors[currentState]);
     orbit.material.color.setHex(colors[currentState]);
+    stateIndicators.forEach((indicator, index) => indicator.scale.setScalar(index === currentState ? 1.5 : 0.8));
     if (config.shape === 'gravity') state.targetY = currentState ? 1.65 : -1.65;
+    if (gravityArrow) gravityArrow.rotation.z = currentState ? 0 : Math.PI;
   }
 
   return {
@@ -901,6 +936,8 @@ function setupToggle(day, config, world, state) {
       currentState = 0;
       state.targetY = -1.65;
       player.position.y = config.shape === 'gravity' ? -1.65 : -0.45;
+      if (gravityArrow) gravityArrow.rotation.z = Math.PI;
+      stateIndicators.forEach((indicator, index) => indicator.scale.setScalar(index === 0 ? 1.5 : 0.8));
       gates.forEach((gate, index) => {
         gate.position.z = -8 - index * 7;
         gate.userData.required = index % colors.length;
@@ -912,6 +949,7 @@ function setupToggle(day, config, world, state) {
     pointerDown: toggle,
     update(delta, elapsed, { hit, miss }) {
       if (config.shape === 'gravity') player.position.y += (state.targetY - player.position.y) * delta * 7;
+      if (gravityArrow) gravityArrow.position.y = player.position.y;
       orbit.position.copy(player.position);
       orbit.rotation.z += delta * (currentState ? -2 : 2);
       const speed = 3.8 + Math.min(2.5, state.score * 0.1);
@@ -935,6 +973,7 @@ function setupToggle(day, config, world, state) {
     },
     idle(delta, elapsed) {
       player.position.y += Math.sin(elapsed * 2) * delta * 0.08;
+      if (gravityArrow) gravityArrow.position.y = player.position.y;
       orbit.position.copy(player.position);
       orbit.rotation.z += delta;
     }
@@ -1155,9 +1194,13 @@ function setupPuzzle(config, world, state) {
   for (let i = 0; i < 3; i += 1) {
     const frame = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.25, 0.14), material(config.accent));
     const mirror = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.08, 0.82), material(0xddefff));
+    const clickHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.82, 0.045, 8, 38),
+      new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.62 })
+    );
     const holder = new THREE.Group();
     holder.position.set((i - 1) * 2.8, -0.35 + Math.abs(i - 1) * 0.7, -3.5 - i * 0.7);
-    holder.add(frame, mirror);
+    holder.add(frame, mirror, clickHalo);
     group.add(holder);
     mirrors.push(holder);
   }
@@ -1225,6 +1268,10 @@ function setupPuzzle(config, world, state) {
     update(delta, elapsed, cb) {
       callbacks = cb;
       nodes.forEach((node, i) => { node.scale.setScalar(1 + Math.sin(elapsed * 3 + i) * 0.08); });
+      mirrors.forEach((mirror, i) => {
+        mirror.children[2].scale.setScalar(1 + Math.sin(elapsed * 2.4 + i) * 0.08);
+        mirror.children[2].rotation.z += delta * 0.24;
+      });
     },
     idle(delta, elapsed) {
       mirrors.forEach((mirror, i) => { mirror.rotation.y = Math.sin(elapsed * 0.7 + i) * 0.12; });
@@ -1236,19 +1283,26 @@ function setupShadow(config, world, scene, state) {
   const group = new THREE.Group();
   world.add(group);
   const object = new THREE.Mesh(new THREE.TorusKnotGeometry(0.7, 0.22, 80, 12), material(config.secondary));
-  object.position.set(0, 0.1, -3.6);
+  object.position.set(-2.05, 0.1, -3.6);
   group.add(object);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 4), new THREE.MeshStandardMaterial({ color: 0xd7d2bd, roughness: 0.9 }));
-  screen.position.set(0, 0, -6.2);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.5), new THREE.MeshStandardMaterial({ color: 0xd7d2bd, roughness: 0.9 }));
+  screen.position.set(1.15, 0, -6.2);
   group.add(screen);
   const shadow = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.28, 12, 48), new THREE.MeshBasicMaterial({ color: 0x242229, transparent: true, opacity: 0.76 }));
-  shadow.position.set(0, 0, -6.1);
+  shadow.position.set(1.15, 0, -6.1);
   group.add(shadow);
-  const target = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.04, 8, 48), new THREE.MeshBasicMaterial({ color: config.accent }));
-  target.position.set(0, 0, -6.02);
+  const target = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.085, 8, 48), new THREE.MeshBasicMaterial({ color: config.accent }));
+  target.position.set(1.15, 0, -6.02);
+  target.material.depthTest = false;
+  target.renderOrder = 5;
   group.add(target);
   const lightMarker = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 12), material(config.accent));
   group.add(lightMarker);
+  const lightBeam = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+    new THREE.LineBasicMaterial({ color: config.accent, transparent: true, opacity: 0.42 })
+  );
+  group.add(lightBeam);
   let angle = -1.2;
   let targetAngle = 0.65;
   let holdTime = 0;
@@ -1269,10 +1323,13 @@ function setupShadow(config, world, scene, state) {
       if (state.pointerDown) setAngle(point);
     },
     update(delta, elapsed, { hit, miss }) {
-      lightMarker.position.set(Math.sin(angle) * 4.2, 2.6, 1.2 + Math.cos(angle) * 2);
+      lightMarker.position.set(Math.sin(angle) * 3.4, 1.85, -2.1 + Math.cos(angle) * 0.8);
+      lightBeam.geometry.setFromPoints([lightMarker.position, object.position]);
       object.rotation.y = angle * 0.65;
       shadow.scale.x = 0.72 + Math.abs(Math.sin(angle)) * 0.7;
       shadow.rotation.z = angle * 0.22;
+      target.scale.x = 0.72 + Math.abs(Math.sin(targetAngle)) * 0.7;
+      target.rotation.z = targetAngle * 0.22;
       const distance = Math.abs(angle - targetAngle);
       if (distance < 0.16) {
         holdTime += delta;
@@ -1295,9 +1352,12 @@ function setupShadow(config, world, scene, state) {
     },
     idle(delta, elapsed) {
       angle = Math.sin(elapsed * 0.55) * 1.1;
-      lightMarker.position.set(Math.sin(angle) * 4.2, 2.6, 2);
+      lightMarker.position.set(Math.sin(angle) * 3.4, 1.85, -2.1 + Math.cos(angle) * 0.8);
+      lightBeam.geometry.setFromPoints([lightMarker.position, object.position]);
       object.rotation.y += delta * 0.4;
       shadow.scale.x = 0.72 + Math.abs(Math.sin(angle)) * 0.7;
+      target.scale.x = 0.72 + Math.abs(Math.sin(targetAngle)) * 0.7;
+      target.rotation.z = targetAngle * 0.22;
     }
   };
 }
