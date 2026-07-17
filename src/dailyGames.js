@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 const CONFIGS = {
-  2: { type: 'timing', goal: 8, accent: 0xff6a45, secondary: 0x54e0d6, shape: 'ball', speed: 1.8, threshold: 0.92 },
+  2: { type: 'timing', goal: 8, accent: 0xff6a45, secondary: 0x54e0d6, shape: 'ball', speed: 1.45, threshold: 1.25 },
   3: { type: 'puzzle', goal: 9, accent: 0xff5b3d, secondary: 0xd9ff43 },
   4: { type: 'stack', goal: 10, accent: 0xd9ff43, secondary: 0xff5b3d },
   5: { type: 'steer', goal: 10, accent: 0x62e1ff, secondary: 0xffc34d, shape: 'ship', axes: 1 },
@@ -329,7 +329,7 @@ function addBackdrop(world, config) {
 }
 
 function setupGame(day, config, world, scene, state, camera) {
-  if (config.type === 'timing') return setupTiming(day, config, world, state);
+  if (config.type === 'timing') return setupTiming(config, world, state);
   if (config.type === 'stack') return setupStack(config, world, state);
   if (config.type === 'blast') return setupBlast(config, world, state);
   if (config.type === 'spring') return setupSpring(config, world, state);
@@ -805,118 +805,176 @@ function setupReflect(config, world, state) {
   }
 }
 
-function setupTiming(day, config, world, state) {
+function setupTiming(config, world, state) {
   const group = new THREE.Group();
   world.add(group);
-  const target = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.15, 1.15, 0.18, config.shape === 'spring' ? 12 : 48),
+  const paddle = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.15, 1.15, 0.18, 48),
     material(config.secondary)
   );
-  target.position.set(0, -1.65, -3.1);
-  group.add(target);
+  paddle.position.set(0, -1.65, -3.1);
+  group.add(paddle);
 
-  let moverGeometry = new THREE.SphereGeometry(0.42, 24, 16);
-  if (config.shape === 'box' || config.shape === 'blast') moverGeometry = new THREE.BoxGeometry(1.4, 0.55, 1.1);
-  if (config.shape === 'spring') moverGeometry = new THREE.CylinderGeometry(0.42, 0.7, 0.7, 10);
-  const mover = new THREE.Mesh(moverGeometry, material(config.accent));
-  mover.position.set(0, 0.15, -3.1);
-  group.add(mover);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 16), material(config.accent));
+  ball.position.set(0, 0.15, -3.1);
+  group.add(ball);
 
-  let cargo = null;
-  if (config.shape === 'ball') {
-    cargo = new THREE.Group();
-    const crate = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.82, 0.9), material(config.accent));
-    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.86, 0.94), material(config.secondary));
-    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 12), material(config.secondary));
-    arrow.position.y = -0.78;
-    arrow.rotation.z = Math.PI;
-    cargo.position.set(0, 2.05, -3.1);
-    cargo.add(crate, strap, arrow);
-    group.add(cargo);
-  }
+  const rail = new THREE.Mesh(
+    new THREE.BoxGeometry(7.4, 0.04, 0.05),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.18 })
+  );
+  rail.position.set(0, 0.15, -3.25);
+  group.add(rail);
+
+  const cargo = new THREE.Group();
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.82, 0.9), material(config.accent));
+  const strap = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.86, 0.94), material(config.secondary));
+  const cargoRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.95, 0.05, 8, 44),
+    new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.5 })
+  );
+  cargo.position.set(0, 2.05, -3.1);
+  cargo.add(crate, strap, cargoRing);
+  group.add(cargo);
 
   const guide = new THREE.Mesh(
     new THREE.TorusGeometry(config.threshold, 0.035, 8, 64),
     new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.55 })
   );
   guide.rotation.x = Math.PI / 2;
-  guide.position.copy(target.position).add(new THREE.Vector3(0, 0.2, 0));
+  guide.position.copy(paddle.position).add(new THREE.Vector3(0, 0.2, 0));
   group.add(guide);
 
-  const blocks = [];
-  if (config.shape === 'box') {
-    for (let i = 0; i < 4; i += 1) {
-      const block = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.5, 1.25), material(i % 2 ? config.accent : config.secondary));
-      block.position.set(0, -2.1 + i * 0.5, -3.1);
-      blocks.push(block);
-      group.add(block);
-    }
-  }
-  if (config.shape === 'blast') {
-    for (let x = -2; x <= 2; x += 1) {
-      for (let y = 0; y < 3; y += 1) {
-        const cube = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), material((x + y) % 2 ? config.accent : config.secondary));
-        cube.position.set(x * 0.62, -1.55 + y * 0.62, -3.5);
-        blocks.push(cube);
-        group.add(cube);
-      }
-    }
-  }
+  const dropGuide = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([ball.position, paddle.position]),
+    new THREE.LineDashedMaterial({ color: config.secondary, dashSize: 0.16, gapSize: 0.1, transparent: true, opacity: 0.48 })
+  );
+  dropGuide.computeLineDistances();
+  group.add(dropGuide);
 
   let phase = 0;
-  let bounce = 0;
-  const attempt = (hit, miss) => {
-    if (!state.started || state.cooldown > 0) return;
-    const distance = Math.abs(mover.position.x - target.position.x);
-    bounce = 0.55;
-    if (distance < config.threshold) {
-      hit(distance < config.threshold * 0.35 ? 2 : 1);
-      phase += 0.9;
-      if (config.shape === 'box') {
-        target.position.y = Math.min(0.1, target.position.y + 0.18);
-        mover.position.y = Math.min(1.8, mover.position.y + 0.2);
-      }
-      if (config.shape === 'blast') blocks.forEach((block, index) => {
-        block.rotation.x += index * 0.17;
-        block.scale.multiplyScalar(0.96);
-      });
-    } else miss();
-  };
+  let mode = 'ready';
+  let motionTime = 0;
+  let releaseX = 0;
+  let releaseDistance = 0;
+  let resultSent = false;
+  const readyY = 0.15;
+  const contactY = -1.13;
+  const cargoHitY = 1.22;
+
+  function setDropGuide() {
+    dropGuide.geometry.setFromPoints([
+      new THREE.Vector3(ball.position.x, ball.position.y - 0.48, ball.position.z),
+      new THREE.Vector3(ball.position.x, paddle.position.y + 0.22, ball.position.z)
+    ]);
+    dropGuide.computeLineDistances();
+  }
+
+  function attempt() {
+    if (!state.started || state.cooldown > 0 || mode !== 'ready') return;
+    releaseX = ball.position.x;
+    releaseDistance = Math.abs(releaseX - paddle.position.x);
+    motionTime = 0;
+    resultSent = false;
+    mode = 'falling';
+    dropGuide.visible = false;
+  }
+
+  function returnToRail() {
+    mode = 'ready';
+    motionTime = 0;
+    resultSent = false;
+    ball.visible = true;
+    ball.position.y = readyY;
+    cargo.scale.setScalar(1);
+    paddle.scale.set(1, 1, 1);
+    dropGuide.visible = true;
+  }
 
   let callbacks = null;
   return {
     reset() {
       phase = 0;
-      bounce = 0;
-      target.position.x = 0;
-      mover.position.y = 0.15;
+      ball.position.set(0, readyY, -3.1);
+      returnToRail();
     },
-    controlDown() {
-      if (callbacks) attempt(callbacks.hit, callbacks.miss);
-    },
-    pointerDown() {
-      if (callbacks) attempt(callbacks.hit, callbacks.miss);
-    },
+    controlDown: attempt,
+    pointerDown: attempt,
     update(delta, elapsed, cb) {
       callbacks = cb;
-      mover.position.x = Math.sin(elapsed * config.speed + phase) * 3.15;
-      mover.rotation.x += delta * 1.4;
-      mover.rotation.y += delta * 2;
-      if (bounce > 0) {
-        bounce -= delta;
-        mover.position.y += Math.sin((0.55 - bounce) * Math.PI / 0.55) * delta * 7;
-      }
+      ball.rotation.x += delta * 1.4;
+      ball.rotation.y += delta * 2;
+      cargo.rotation.y = Math.sin(elapsed * 0.7) * 0.12;
+      cargoRing.rotation.z += delta * 0.7;
       guide.rotation.z += delta * 0.5;
-      if (cargo) {
-        cargo.rotation.y = Math.sin(elapsed * 0.7) * 0.12;
-        cargo.children[2].position.y = -0.78 + Math.sin(elapsed * 4) * 0.12;
+
+      if (mode === 'ready') {
+        ball.position.x = Math.sin(elapsed * config.speed + phase) * 3.15;
+        ball.position.y = readyY;
+        const alignment = Math.max(0, 1 - Math.abs(ball.position.x) / 2.2);
+        guide.material.opacity = 0.28 + alignment * 0.62;
+        guide.scale.setScalar(0.96 + alignment * 0.08);
+        dropGuide.material.color.setHex(Math.abs(ball.position.x) < config.threshold ? config.secondary : config.accent);
+        dropGuide.material.opacity = Math.abs(ball.position.x) < config.threshold ? 0.78 : 0.3;
+        setDropGuide();
+        document.querySelector('#power-fill').style.width = `${Math.round(alignment * 100)}%`;
+      } else if (mode === 'falling') {
+        motionTime += delta;
+        const progress = Math.min(1, motionTime / 0.38);
+        ball.position.x = releaseX;
+        ball.position.y = THREE.MathUtils.lerp(readyY, contactY, progress * progress);
+        if (progress >= 1) {
+          motionTime = 0;
+          if (releaseDistance < config.threshold) {
+            mode = 'rebounding';
+            paddle.scale.set(1.12, 0.55, 1.12);
+          } else {
+            mode = 'missing';
+          }
+        }
+      } else if (mode === 'rebounding') {
+        motionTime += delta;
+        const progress = Math.min(1, motionTime / 0.58);
+        const eased = 1 - (1 - progress) ** 2;
+        ball.position.x = THREE.MathUtils.lerp(releaseX, 0, eased);
+        ball.position.y = THREE.MathUtils.lerp(contactY, cargoHitY, eased);
+        paddle.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, delta * 10));
+        if (progress >= 1 && !resultSent) {
+          resultSent = true;
+          cargo.scale.setScalar(1.16);
+          callbacks.hit(releaseDistance < config.threshold * 0.35 ? 2 : 1);
+          phase += 0.9;
+          motionTime = 0;
+          mode = 'resetting';
+        }
+      } else if (mode === 'missing') {
+        motionTime += delta;
+        const progress = Math.min(1, motionTime / 0.42);
+        ball.position.x = releaseX + Math.sign(releaseX || 1) * progress * 0.35;
+        ball.position.y = contactY - progress * progress * 1.25;
+        if (progress > 0.28 && !resultSent) {
+          resultSent = true;
+          callbacks.miss();
+        }
+        if (progress >= 1) {
+          motionTime = 0;
+          mode = 'resetting';
+        }
+      } else if (mode === 'resetting') {
+        motionTime += delta;
+        cargo.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, delta * 9));
+        if (motionTime >= 0.34) returnToRail();
       }
-      if (day === 16) target.scale.y = 1 + Math.sin(elapsed * 5) * 0.18;
     },
     idle(delta, elapsed) {
-      mover.position.x = Math.sin(elapsed * config.speed) * 3.15;
-      mover.rotation.y += delta;
-      if (cargo) cargo.rotation.y += delta * 0.2;
+      ball.visible = true;
+      ball.position.x = Math.sin(elapsed * config.speed) * 3.15;
+      ball.position.y = readyY;
+      ball.rotation.y += delta;
+      cargo.rotation.y += delta * 0.2;
+      cargoRing.rotation.z += delta * 0.55;
+      dropGuide.visible = true;
+      setDropGuide();
     }
   };
 }
