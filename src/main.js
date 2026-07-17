@@ -47,22 +47,40 @@ const playableDetails = {
     ]
   },
   4: { description: '抓准横向移动的瞬间，把方块稳稳叠高。', instruction: '点击放下移动中的方块。重叠越整齐，下一层保留的面积越大。', control: '点击放下方块' },
-  5: { description: '驾驶一厘米飞船，从桌面障碍之间穿过去。', instruction: '在画面中左右拖动飞船，避开迎面而来的积木和文具。', control: '左右拖动飞船' },
-  6: { description: '切换磁极，把能量球引导到出口。', instruction: '点击切换红蓝磁极。同性相斥、异性相吸，别让能量球碰到边界。', control: '点击切换磁极' },
-  7: { description: '操控纸飞机穿过云层中的连续航门。', instruction: '在画面中拖动控制飞行方向，连续穿过航门获得连击分。', control: '拖动控制纸飞机' },
-  8: { description: '移动黄色灯光，让黑色影子贴合屏幕上的黄色轮廓。', instruction: '在画面中左右拖动灯光。黑影与黄色目标轮廓重合后保持一秒即可破案。', control: '左右拖动黄色灯光' },
-  9: { description: '拖出方向和力度，一球击倒微型瓶阵。', instruction: '从保龄球向后拖动进行瞄准，松手后滚动。尽量一次击倒更多球瓶。', control: '拖动瞄准 · 松手投球' },
-  10: { description: '在不断变形的霓虹隧道里保持航线。', instruction: '左右拖动飞行器穿过缺口。速度会逐渐提升，碰撞三次后结束。', control: '左右拖动穿越缺口' },
+  5: { description: '驾驶一厘米飞船，从桌面障碍之间穿过去。', instruction: '移动鼠标或使用 A/D、左右方向键控制飞船；手机直接左右拖动。', control: '鼠标移动 · A/D 左右' },
+  6: {
+    description: '切换能量球磁极，利用吸引与排斥穿过偏移出口。',
+    instruction: '点击切换红蓝磁极：红极把球推向右侧，蓝极把球推向左侧。提前观察迎面而来的出口。',
+    control: '点击切换磁力方向',
+    rules: [
+      '红蓝磁体会同时吸引与排斥能量球，球上的箭头显示当前受力方向。',
+      '点击切换磁极：红极向右加速，蓝极向左加速。',
+      '让球对准迎面而来的发光出口，同时不要撞上两侧边界。'
+    ]
+  },
+  7: { description: '操控纸飞机穿过云层中的连续航门。', instruction: '移动鼠标或使用 WASD/方向键控制飞机；手机在画面中拖动。', control: '鼠标移动 · WASD' },
+  8: {
+    description: '移动黄色灯光，让黑色影子覆盖屏幕上的黄色目标。',
+    instruction: '左右拖动灯光，观察黑影如何变形。黑影覆盖黄色轮廓时会变绿，保持一秒完成锁定。',
+    control: '左右拖灯 · A/D',
+    rules: [
+      '黄色球是灯光，紫色物体会在右侧屏幕上留下黑色影子。',
+      '左右拖动灯光，让黑影逐渐覆盖始终可见的黄色目标轮廓。',
+      '对齐后黑影会变绿；保持到底部锁定条填满即可得分。'
+    ]
+  },
+  9: { description: '沿发光球道拖出方向和力度，撞倒尽可能多的球瓶。', instruction: '从保龄球上按住向后拖动，瞄准线与力度条会同时变化；松手后滚向瓶阵。', control: '从球上拖动 · 松手投球' },
+  10: { description: '在不断变形的霓虹隧道里保持航线。', instruction: '移动鼠标或使用 A/D、左右方向键穿过缺口；速度会逐渐提升。', control: '鼠标移动 · A/D 左右' },
   11: { description: '点击相邻的同色方块，引发一次 3D 连锁爆破。', instruction: '直接点击两个以上相连的同色方块。一次消除越多，达到 20 分目标越快。', control: '点击同色方块爆破' },
   12: { description: '一键翻转重力，让能量球移动到来临光环所在的平台。', instruction: '观察远处光环位于上方还是下方，提前点击切换重力，让能量球落到同一侧。', control: '点击翻转上下重力' },
-  13: { description: '在低重力月面上，用最少杆数进洞。', instruction: '从月球向后拖动设置方向和力量，松手击球。注意月球重力更小。', control: '拖动瞄准 · 松手击球' },
+  13: { description: '在低重力月面上控制抛物线，连续把球送进移动洞口。', instruction: '从球上按住向后拖动；方向决定落点，力度决定抛物高度。球太高时会飞过洞口。', control: '从球上拖动 · 松手击球' },
   14: { description: '切换潜航器颜色，穿过迎面而来的同色水门。', instruction: '观察最前方水门颜色，点击依次切换红、黄、青；颜色一致时才能安全通过。', control: '点击切换当前颜色' },
   15: { description: '借助风力，把快递送进漂浮的收件环。', instruction: '按住增强风力让包裹上升，松开后滑翔。连续穿环即可加分。', control: '按住送风 · 松开滑翔' },
   16: { description: '踩着弹簧屋顶，在微缩城市里向上攀登。', instruction: '点击触发下一次弹跳，落在屋顶中央可获得更高弹力。', control: '点击触发弹跳' },
   17: {
     description: '旋转中央镜面，用反射光持续追踪移动目标。',
     instruction: '在画面中按住并上下拖动镜面，让黄色反射光锁定右侧目标；保持到锁定环填满即可得分。',
-    control: '按住上下拖动镜面',
+    control: '上下拖镜 · W/S',
     rules: [
       '手指或鼠标按住画面，上下拖动，改变中央镜面的反射角度。',
       '让黄色反射光落在右侧移动光球上，并持续保持到锁定进度填满。',
@@ -90,13 +108,46 @@ const selectedDetails = playableDetails[selectedDay];
 const selectedDayLabel = String(selectedDay).padStart(2, '0');
 const meterLabels = {
   1: '发射力度', 2: '反弹时机', 3: '接线进度', 4: '落点窗口',
-  5: '航行状态', 6: '磁极状态', 7: '航线状态', 8: '影子匹配',
+  5: '航行状态', 6: '磁力位置', 7: '航线状态', 8: '影子匹配',
   9: '投球力度', 10: '隧道速度', 11: '连锁能量', 12: '重力方向',
   13: '击球力度', 14: '当前颜色', 15: '风力高度', 16: '弹跳时机', 17: '追光锁定'
 };
 const canvasPrimaryDays = new Set([3, 5, 7, 8, 9, 10, 11, 13, 17]);
 const canvasPrimary = canvasPrimaryDays.has(selectedDay);
 const gestureIcons = { 3: '◎', 5: '↔', 7: '↕', 8: '↔', 9: '⌁', 10: '↔', 11: '◎', 13: '⌁', 17: '↕' };
+const buttonIcons = { 2: '↓', 4: '▬', 6: '↔', 12: '↕', 14: '●', 15: '≈', 16: '↑' };
+const canvasControlLabels = {
+  3: ['点击发光镜面', '点击发光镜面'],
+  5: ['鼠标移动 / A D', '左右拖动飞船'],
+  7: ['鼠标移动 / WASD', '拖动纸飞机'],
+  8: ['左右拖灯 / A D', '左右拖动灯光'],
+  9: ['从球上拖动投球', '从球上拖动投球'],
+  10: ['鼠标移动 / A D', '左右拖动穿越'],
+  11: ['点击同色方块', '点击同色方块'],
+  13: ['从球上拖动击球', '从球上拖动击球'],
+  17: ['上下拖镜 / W S', '上下拖动镜面']
+};
+const [desktopControl, mobileControl] = canvasControlLabels[selectedDay] || [selectedDetails.control, selectedDetails.control];
+const platformTips = {
+  1: ['鼠标拖动瞄准，空格键蓄力', '手指拖动瞄准，按住底部蓄力'],
+  2: ['鼠标点击或空格键释放', '直接点击画面释放'],
+  3: ['点击发光镜面，空格也可旋转', '点击当前发光镜面'],
+  4: ['鼠标点击或空格落下', '点击画面落下方块'],
+  5: ['移动鼠标，或按 A/D、左右方向键', '手指左右拖动飞船'],
+  6: ['鼠标点击或空格切换磁极', '点击画面切换磁极'],
+  7: ['移动鼠标，或按 WASD/方向键', '手指在画面中拖动'],
+  8: ['按住鼠标左右拖灯，或按 A/D', '按住画面左右拖动灯光'],
+  9: ['从球上按住拖动，松开投球', '从球上按住拖动，松开投球'],
+  10: ['移动鼠标，或按 A/D、左右方向键', '手指左右拖动飞行器'],
+  11: ['鼠标直接点击同色方块', '手指直接点击同色方块'],
+  12: ['鼠标点击或空格翻转重力', '点击画面翻转重力'],
+  13: ['从球上按住拖动，松开击球', '从球上按住拖动，松开击球'],
+  14: ['鼠标点击或空格切换颜色', '点击画面切换颜色'],
+  15: ['按住鼠标按钮或空格送风', '按住底部按钮送风'],
+  16: ['鼠标点击或空格触发弹跳', '点击画面触发弹跳'],
+  17: ['按住鼠标上下拖镜，或按 W/S', '按住画面上下拖动镜面']
+};
+const [desktopTip, mobileTip] = platformTips[selectedDay];
 document.title = `Day ${selectedDayLabel} · ${selectedGame[0]} | 一日一游`;
 document.querySelector('meta[name="description"]')?.setAttribute('content', selectedDetails.description);
 const rules = selectedDetails.rules || [
@@ -157,7 +208,7 @@ document.querySelector('#app').innerHTML = `
       <div class="game-toast" id="game-toast" aria-live="polite"></div>
       <div class="gesture-hint" id="gesture-hint" hidden>
         <span>${gestureIcons[selectedDay] || '◎'}</span>
-        <div><small>在游戏画面中操作</small><strong>${selectedDetails.control}</strong></div>
+        <div><small>在游戏画面中操作</small><strong><span class="platform-control-desktop">${desktopControl}</span><span class="platform-control-mobile">${mobileControl}</span></strong></div>
       </div>
 
       <aside class="rules-panel" id="rules-panel" hidden aria-labelledby="rules-title">
@@ -168,7 +219,7 @@ document.querySelector('#app').innerHTML = `
         <ol>
           ${rules.map((rule, index) => `<li><span>${String(index + 1).padStart(2, '0')}</span><p>${rule}</p></li>`).join('')}
         </ol>
-        <div class="rules-tip"><span>电脑</span>鼠标拖动或空格键　<span>手机</span>直接触摸游戏区域</div>
+        <div class="rules-tip"><span>电脑</span>${desktopTip}<br><span>手机</span>${mobileTip}</div>
         <button class="rules-ready" id="rules-ready" type="button">知道了，开始挑战</button>
       </aside>
 
@@ -190,8 +241,8 @@ document.querySelector('#app').innerHTML = `
           <div class="power-track"><i id="power-fill"></i></div>
         </div>
         <button id="launch-button" class="launch-button${canvasPrimary ? ' guide-only' : ''}" type="button" ${canvasPrimary ? 'aria-disabled="true" tabindex="-1"' : ''}>
-          <span class="launch-icon">${canvasPrimary ? gestureIcons[selectedDay] : '↑'}</span>
-          <span>${selectedDetails.control}</span>
+          <span class="launch-icon">${canvasPrimary ? gestureIcons[selectedDay] : buttonIcons[selectedDay] || '↑'}</span>
+          <span><span class="platform-control-desktop">${desktopControl}</span><span class="platform-control-mobile">${mobileControl}</span></span>
         </button>
       </div>
 

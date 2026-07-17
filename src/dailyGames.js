@@ -5,7 +5,7 @@ const CONFIGS = {
   3: { type: 'puzzle', goal: 9, accent: 0xff5b3d, secondary: 0xd9ff43 },
   4: { type: 'stack', goal: 10, accent: 0xd9ff43, secondary: 0xff5b3d },
   5: { type: 'steer', goal: 10, accent: 0x62e1ff, secondary: 0xffc34d, shape: 'ship', axes: 1 },
-  6: { type: 'toggle', goal: 10, accent: 0xff513b, secondary: 0x35d8d1, states: 2, shape: 'magnet' },
+  6: { type: 'magnet', goal: 10, accent: 0xff513b, secondary: 0x35d8d1 },
   7: { type: 'steer', goal: 10, accent: 0xf4f0df, secondary: 0x74c8ff, shape: 'plane', axes: 2 },
   8: { type: 'shadow', goal: 8, accent: 0xffd05a, secondary: 0x8b7cff },
   9: { type: 'aim', goal: 12, accent: 0xff5b3d, secondary: 0xf4f0df, shape: 'bowling' },
@@ -71,6 +71,7 @@ export function createDailyGame(day, ui) {
     combo: 0,
     shake: 0
   };
+  const pressedKeys = new Set();
 
   const game = setupGame(day, config, world, scene, state, camera);
 
@@ -262,6 +263,7 @@ export function createDailyGame(day, ui) {
     state.elapsed += delta;
     if (state.started && !paused) {
       state.roundTime += delta;
+      game.keyboard?.(delta, pressedKeys);
       game.update(delta, state.elapsed, { hit, miss });
       feedbackBurst.update(delta);
       if (state.cooldown > 0) state.cooldown -= delta;
@@ -287,9 +289,14 @@ export function createDailyGame(day, ui) {
   window.addEventListener('pointerup', controlUp);
   window.addEventListener('pointercancel', controlUp);
   window.addEventListener('keydown', (event) => {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS'].includes(event.code)) {
+      pressedKeys.add(event.code);
+      if (state.started) event.preventDefault();
+    }
     if (event.code === 'Space' && !event.repeat) controlDown(event);
   });
   window.addEventListener('keyup', (event) => {
+    pressedKeys.delete(event.code);
     if (event.code === 'Space') controlUp(event);
   });
   window.addEventListener('resize', resize);
@@ -297,6 +304,7 @@ export function createDailyGame(day, ui) {
     paused = Boolean(event.detail);
     if (paused) {
       state.holding = false;
+      pressedKeys.clear();
       ui.launchButton.classList.remove('charging');
     }
   });
@@ -331,12 +339,13 @@ function addBackdrop(world, config) {
 function setupGame(day, config, world, scene, state, camera) {
   if (config.type === 'timing') return setupTiming(config, world, state);
   if (config.type === 'stack') return setupStack(config, world, state);
-  if (config.type === 'blast') return setupBlast(config, world, state);
+  if (config.type === 'blast') return setupBlast(config, world, state, camera);
   if (config.type === 'spring') return setupSpring(config, world, state);
   if (config.type === 'reflect') return setupReflect(config, world, state);
   if (config.type === 'steer') return setupSteer(day, config, world, state);
+  if (config.type === 'magnet') return setupMagnet(config, world, state);
   if (config.type === 'toggle') return setupToggle(day, config, world, state);
-  if (config.type === 'aim') return setupAim(day, config, world, state);
+  if (config.type === 'aim') return setupAim(day, config, world, state, camera);
   if (config.type === 'hold') return setupHold(config, world, state);
   if (config.type === 'puzzle') return setupPuzzle(config, world, state, camera);
   return setupShadow(config, world, scene, state);
@@ -475,7 +484,7 @@ function setupStack(config, world, state) {
   };
 }
 
-function setupBlast(config, world, state) {
+function setupBlast(config, world, state, camera) {
   const group = new THREE.Group();
   world.add(group);
   const columns = 5;
@@ -484,6 +493,7 @@ function setupBlast(config, world, state) {
   const cells = [];
   let seed = 0;
   let callbacks = null;
+  const raycaster = new THREE.Raycaster();
 
   function rebuild() {
     cells.forEach((cell) => group.remove(cell.mesh));
@@ -494,8 +504,10 @@ function setupBlast(config, world, state) {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.72, 0.82), material(colors[colorIndex]));
         mesh.position.set((column - 2) * 1.02, (row - 1.5) * 0.86 - 0.25, -3.4);
         mesh.userData.home = mesh.position.clone();
+        const cell = { mesh, column, row, colorIndex, active: true };
+        mesh.userData.cell = cell;
         group.add(mesh);
-        cells.push({ mesh, column, row, colorIndex, active: true });
+        cells.push(cell);
       }
     }
     seed += 1;
@@ -520,11 +532,8 @@ function setupBlast(config, world, state) {
     return cluster;
   }
 
-  function blastAt(point) {
+  function blastCell(cell) {
     if (!callbacks || !state.started || state.cooldown > 0) return;
-    const column = Math.max(0, Math.min(columns - 1, Math.floor(((point.x + 1) / 2) * columns)));
-    const row = Math.max(0, Math.min(rows - 1, Math.floor(((point.y + 0.55) / 1.1) * rows)));
-    const cell = cells.find((item) => item.active && item.column === column && item.row === row);
     if (!cell) return;
     const cluster = clusterFrom(cell);
     if (cluster.length < 2) {
@@ -542,12 +551,20 @@ function setupBlast(config, world, state) {
     if (remaining < 5 && !state.gameOverPending) window.setTimeout(rebuild, 520);
   }
 
+  function blastAt(point) {
+    if (!callbacks || !state.started || state.cooldown > 0) return;
+    raycaster.setFromCamera(new THREE.Vector2(point.x, point.y), camera);
+    const meshes = cells.filter((cell) => cell.active).map((cell) => cell.mesh);
+    const hit = raycaster.intersectObjects(meshes, false)[0];
+    if (hit) blastCell(hit.object.userData.cell);
+  }
+
   return {
     reset: rebuild,
     pointerDown: blastAt,
     controlDown() {
       const center = cells.find((cell) => cell.active && cell.column === 2 && cell.row === 2);
-      if (center) blastAt({ x: 0, y: 0.15 });
+      if (center) blastCell(center);
     },
     update(delta, elapsed, cb) {
       callbacks = cb;
@@ -714,6 +731,7 @@ function setupReflect(config, world, state) {
   let targetPhase = 0;
   let lockTime = 0;
   let searchTime = 0;
+  let keyboardActive = false;
   let callbacks = null;
 
   function setAim(point) {
@@ -733,6 +751,7 @@ function setupReflect(config, world, state) {
       targetPhase = 0;
       lockTime = 0;
       searchTime = 0;
+      keyboardActive = false;
       updateBeam();
       outgoingBeam.material.opacity = 0.2;
     },
@@ -742,6 +761,12 @@ function setupReflect(config, world, state) {
     },
     pointerUp() {
       outgoingBeam.material.opacity = 0.2;
+    },
+    keyboard(delta, keys) {
+      const direction = (keys.has('ArrowUp') || keys.has('KeyW') ? 1 : 0)
+        - (keys.has('ArrowDown') || keys.has('KeyS') ? 1 : 0);
+      keyboardActive = direction !== 0;
+      if (direction) angle = THREE.MathUtils.clamp(angle + direction * delta * 1.15, -0.68, 0.68);
     },
     update(delta, elapsed, cb) {
       callbacks = cb;
@@ -757,7 +782,7 @@ function setupReflect(config, world, state) {
       const distance = Math.abs(beamYAtTarget - targetY);
       const tolerance = Math.max(0.32, 0.58 - state.score * 0.025);
       const lockNeeded = 0.62 + state.score * 0.025;
-      const active = state.pointerDown;
+      const active = state.pointerDown || keyboardActive;
       outgoingBeam.material.opacity = active ? 0.95 : 0.2;
 
       if (active && distance < tolerance) {
@@ -982,6 +1007,7 @@ function setupTiming(config, world, state) {
 function setupSteer(day, config, world, state) {
   const group = new THREE.Group();
   world.add(group);
+  const maxX = 2.7;
   const playerGeometry = config.shape === 'plane'
     ? new THREE.ConeGeometry(0.46, 1.25, 3)
     : config.shape === 'ship' ? new THREE.IcosahedronGeometry(0.5, 1) : new THREE.OctahedronGeometry(0.5, 0);
@@ -1044,12 +1070,20 @@ function setupSteer(day, config, world, state) {
       });
     },
     pointerMove(point) {
-      state.targetX = point.x * 4.2;
+      state.targetX = point.x * maxX;
       if (config.axes === 2) state.targetY = point.y * 2.25;
     },
     pointerDown(point) {
-      state.targetX = point.x * 4.2;
+      state.targetX = point.x * maxX;
       if (config.axes === 2) state.targetY = point.y * 2.25;
+    },
+    keyboard(delta, keys) {
+      const horizontal = (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0)
+        - (keys.has('ArrowLeft') || keys.has('KeyA') ? 1 : 0);
+      const vertical = (keys.has('ArrowUp') || keys.has('KeyW') ? 1 : 0)
+        - (keys.has('ArrowDown') || keys.has('KeyS') ? 1 : 0);
+      if (horizontal) state.targetX = THREE.MathUtils.clamp(state.targetX + horizontal * delta * 5.2, -maxX, maxX);
+      if (config.axes === 2 && vertical) state.targetY = THREE.MathUtils.clamp(state.targetY + vertical * delta * 4.4, -2.25, 2.25);
     },
     update(delta, elapsed, { hit, miss }) {
       player.position.x += (state.targetX - player.position.x) * Math.min(1, delta * 8);
@@ -1076,6 +1110,153 @@ function setupSteer(day, config, world, state) {
       player.rotation.y += delta;
       halo.position.copy(player.position);
       halo.rotation.z += delta;
+    }
+  };
+}
+
+function setupMagnet(config, world, state) {
+  const group = new THREE.Group();
+  world.add(group);
+  const colors = [config.accent, config.secondary];
+
+  const leftMagnet = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.7, 20), material(colors[0]));
+  const rightMagnet = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.7, 20), material(colors[1]));
+  leftMagnet.rotation.z = Math.PI / 2;
+  rightMagnet.rotation.z = Math.PI / 2;
+  leftMagnet.position.set(-3.65, -0.4, -2.9);
+  rightMagnet.position.set(3.65, -0.4, -2.9);
+  group.add(leftMagnet, rightMagnet);
+
+  const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.45, 14), material(0x30383a));
+  const rightRail = leftRail.clone();
+  leftRail.position.set(-3.25, -0.4, -3.5);
+  rightRail.position.set(3.25, -0.4, -3.5);
+  group.add(leftRail, rightRail);
+
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.54, 28, 18), material(colors[0]));
+  ball.position.set(0, -0.4, 2);
+  const orbit = new THREE.Mesh(
+    new THREE.TorusGeometry(0.84, 0.07, 8, 48),
+    new THREE.MeshBasicMaterial({ color: colors[0] })
+  );
+  orbit.position.copy(ball.position);
+  const forceArrow = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.68, 12), material(colors[0]));
+  forceArrow.position.copy(ball.position).add(new THREE.Vector3(0, 0.95, 0));
+  group.add(ball, orbit, forceArrow);
+
+  const indicators = colors.map((color, index) => {
+    const indicator = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), material(color));
+    indicator.position.set((index ? 0.3 : -0.3), 1.65, 1.7);
+    indicator.scale.setScalar(index === 0 ? 1.5 : 0.8);
+    group.add(indicator);
+    return indicator;
+  });
+
+  const forceLines = new THREE.LineSegments(
+    new THREE.BufferGeometry(),
+    new THREE.LineDashedMaterial({ color: config.secondary, dashSize: 0.14, gapSize: 0.1, transparent: true, opacity: 0.42 })
+  );
+  group.add(forceLines);
+
+  const gates = [];
+  for (let i = 0; i < 4; i += 1) {
+    const gate = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.16, 12, 52), material(0xd9ff43));
+    gate.position.set(i % 2 ? 1.8 : -1.8, -0.4, -8 - i * 7);
+    gate.userData.checked = false;
+    group.add(gate);
+    gates.push(gate);
+  }
+
+  let polarity = 0;
+  let velocityX = 0;
+  let callbacks = null;
+
+  function direction() {
+    return polarity === 0 ? 1 : -1;
+  }
+
+  function refreshPolarity() {
+    const color = colors[polarity];
+    ball.material.color.setHex(color);
+    ball.material.emissive.setHex(color);
+    orbit.material.color.setHex(color);
+    forceArrow.material.color.setHex(color);
+    forceArrow.material.emissive.setHex(color);
+    forceArrow.rotation.z = direction() > 0 ? -Math.PI / 2 : Math.PI / 2;
+    indicators.forEach((indicator, index) => indicator.scale.setScalar(index === polarity ? 1.5 : 0.8));
+  }
+
+  function toggle() {
+    if (!state.started || state.cooldown > 0) return;
+    polarity = (polarity + 1) % 2;
+    refreshPolarity();
+  }
+
+  function updateForceLines() {
+    forceLines.geometry.setFromPoints([
+      leftMagnet.position, ball.position,
+      ball.position, rightMagnet.position
+    ]);
+    forceLines.computeLineDistances();
+  }
+
+  return {
+    reset() {
+      polarity = 0;
+      velocityX = 0;
+      ball.position.set(0, -0.4, 2);
+      gates.forEach((gate, index) => {
+        gate.position.set(index % 2 ? 1.8 : -1.8, -0.4, -8 - index * 7);
+        gate.userData.checked = false;
+      });
+      refreshPolarity();
+      updateForceLines();
+    },
+    controlDown: toggle,
+    pointerDown: toggle,
+    update(delta, elapsed, cb) {
+      callbacks = cb;
+      velocityX += direction() * delta * (4.2 + Math.min(1.8, state.score * 0.08));
+      velocityX *= Math.max(0, 1 - delta * 1.35);
+      ball.position.x += velocityX * delta;
+      if (Math.abs(ball.position.x) > 3.05) {
+        ball.position.x = Math.sign(ball.position.x) * 3.02;
+        velocityX = -Math.sign(ball.position.x) * 1.6;
+      }
+      ball.rotation.y += delta * velocityX * 1.4;
+      orbit.position.copy(ball.position);
+      orbit.rotation.z += delta * direction() * 2.1;
+      forceArrow.position.copy(ball.position).add(new THREE.Vector3(0, 0.95, 0));
+      updateForceLines();
+
+      const speed = 3.7 + Math.min(2.6, state.score * 0.1);
+      gates.forEach((gate) => {
+        gate.position.z += delta * speed;
+        gate.rotation.z += delta * 0.6;
+        if (!gate.userData.checked && gate.position.z > 1.55) {
+          gate.userData.checked = true;
+          if (Math.abs(ball.position.x - gate.position.x) < 1.3) callbacks.hit(1);
+          else callbacks.miss();
+          ball.position.x = 0;
+          velocityX = 0;
+          polarity = 0;
+          refreshPolarity();
+        }
+        if (gate.position.z > 5) {
+          gate.position.z = Math.min(...gates.map((item) => item.position.z)) - 7;
+          gate.position.x = Math.sin((state.score + gate.position.z) * 1.37) > 0 ? 1.8 : -1.8;
+          gate.userData.checked = false;
+        }
+      });
+      document.querySelector('#power-fill').style.width = `${Math.round(((ball.position.x + 3.05) / 6.1) * 100)}%`;
+    },
+    idle(delta, elapsed) {
+      ball.position.x = Math.sin(elapsed * 0.8) * 0.7;
+      ball.position.y = -0.4 + Math.sin(elapsed * 2) * 0.08;
+      orbit.position.copy(ball.position);
+      orbit.rotation.z += delta;
+      forceArrow.position.copy(ball.position).add(new THREE.Vector3(0, 0.95, 0));
+      updateForceLines();
     }
   };
 }
@@ -1193,11 +1374,16 @@ function setupToggle(day, config, world, state) {
   };
 }
 
-function setupAim(day, config, world, state) {
+function setupAim(day, config, world, state, camera) {
   const group = new THREE.Group();
   world.add(group);
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.45, 28, 18), material(config.accent));
   ball.position.set(0, -1.75, 2.5);
+  const ballHitArea = new THREE.Mesh(
+    new THREE.SphereGeometry(0.9, 16, 10),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  ball.add(ballHitArea);
   group.add(ball);
   const target = new THREE.Mesh(
     config.shape === 'golf' ? new THREE.TorusGeometry(0.72, 0.08, 8, 48) : new THREE.CylinderGeometry(1.05, 1.05, 0.18, 32),
@@ -1211,10 +1397,24 @@ function setupAim(day, config, world, state) {
   group.add(targetDecor);
   const pins = [];
   if (config.shape === 'bowling') {
+    const lane = new THREE.Mesh(
+      new THREE.BoxGeometry(5.3, 0.12, 13.5),
+      new THREE.MeshStandardMaterial({ color: 0x59676a, emissive: 0x172224, emissiveIntensity: 0.28, roughness: 0.72 })
+    );
+    lane.position.set(0, -1.98, -2.1);
+    const leftGutter = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 13.5), material(config.secondary));
+    const rightGutter = leftGutter.clone();
+    leftGutter.position.set(-2.72, -1.88, -2.1);
+    rightGutter.position.set(2.72, -1.88, -2.1);
+    group.add(lane, leftGutter, rightGutter);
     const pinLayout = [[0, 0], [-0.32, -0.38], [0.32, -0.38], [-0.62, -0.78], [0, -0.78], [0.62, -0.78]];
     pinLayout.forEach(([x, z], index) => {
-      const pin = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.42, 5, 10), material(index % 2 ? 0xf4f0df : config.secondary));
-      pin.position.set(x, -1.35, z);
+      const pin = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.58, 6, 12), material(0xf8f4df, 0x6b6b62));
+      const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 6, 20), material(config.accent));
+      stripe.rotation.x = Math.PI / 2;
+      stripe.position.y = 0.13;
+      pin.add(stripe);
+      pin.position.set(x * 1.28, -1.33, z * 1.28);
       pin.userData.home = pin.position.clone();
       targetDecor.add(pin);
       pins.push(pin);
@@ -1240,14 +1440,18 @@ function setupAim(day, config, world, state) {
   let velocity = new THREE.Vector3();
   let rolling = false;
   let crossed = false;
+  let shotPower = 0;
   let callbacks = null;
+  const raycaster = new THREE.Raycaster();
 
   function resetBall() {
     ball.position.set(0, -1.75, 2.5);
     velocity.set(0, 0, 0);
     rolling = false;
     crossed = false;
+    shotPower = 0;
     aimLine.visible = false;
+    document.querySelector('#power-fill').style.width = '0%';
     pins.forEach((pin) => {
       pin.position.copy(pin.userData.home);
       pin.rotation.set(0, 0, 0);
@@ -1261,6 +1465,8 @@ function setupAim(day, config, world, state) {
     },
     pointerDown(point) {
       if (rolling) return;
+      raycaster.setFromCamera(new THREE.Vector2(point.x, point.y), camera);
+      if (!raycaster.intersectObject(ballHitArea, false).length) return;
       dragging = true;
       dragStart = point;
       aimLine.visible = true;
@@ -1269,9 +1475,11 @@ function setupAim(day, config, world, state) {
       if (!dragging || rolling) return;
       const dx = point.x - dragStart.x;
       const power = Math.min(1, Math.hypot(dx, point.y - dragStart.y));
+      shotPower = power;
       const end = ball.position.clone().add(new THREE.Vector3(-dx * 5, 0.03, -2 - power * 3));
       aimLine.geometry.setFromPoints([ball.position, end]);
       aimLine.geometry.attributes.position.needsUpdate = true;
+      document.querySelector('#power-fill').style.width = `${Math.round(power * 100)}%`;
     },
     pointerUp(point) {
       if (!dragging || rolling) return;
@@ -1279,6 +1487,7 @@ function setupAim(day, config, world, state) {
       const dx = point.x - dragStart.x;
       const dy = point.y - dragStart.y;
       const power = Math.max(0.25, Math.min(1, Math.hypot(dx, dy)));
+      shotPower = power;
       velocity.set(-dx * 4.2, config.shape === 'golf' ? 2.2 * power : 0, -5.5 - power * 5);
       rolling = true;
       crossed = false;
@@ -1304,14 +1513,24 @@ function setupAim(day, config, world, state) {
       ball.rotation.x -= velocity.z * delta;
       if (!crossed && ball.position.z < target.position.z + 0.2) {
         crossed = true;
-        if (Math.abs(ball.position.x - target.position.x) < 1.0) {
-          if (config.shape === 'bowling') {
-            pins.forEach((pin, index) => {
-              pin.rotation.z = (index % 2 ? -1 : 1) * (0.7 + index * 0.12);
-              pin.position.x += (index - 2.5) * 0.08;
-            });
-          }
-          callbacks.hit(config.shape === 'bowling' ? 3 : 1);
+        const distance = Math.abs(ball.position.x - target.position.x);
+        if (config.shape === 'bowling') {
+          const knocked = distance < 1.4
+            ? Math.max(1, Math.min(pins.length, Math.round((1.4 - distance) * 3.2 + shotPower * 3.2)))
+            : 0;
+          if (knocked > 0) {
+            const localBallX = ball.position.x - target.position.x;
+            [...pins]
+              .sort((a, b) => Math.abs(a.userData.home.x - localBallX) - Math.abs(b.userData.home.x - localBallX))
+              .slice(0, knocked)
+              .forEach((pin, index) => {
+                pin.rotation.z = (pin.userData.home.x < localBallX ? -1 : 1) * (0.9 + index * 0.1);
+                pin.position.x += (pin.userData.home.x - localBallX) * 0.25;
+              });
+            callbacks.hit(Math.max(1, Math.ceil(knocked / 2)));
+          } else callbacks.miss();
+        } else if (distance < 0.76 && ball.position.y < -1.05) {
+          callbacks.hit(1);
         } else callbacks.miss();
         window.setTimeout(resetBall, 520);
       }
@@ -1600,27 +1819,75 @@ function setupPuzzle(config, world, state, camera) {
 function setupShadow(config, world, scene, state) {
   const group = new THREE.Group();
   world.add(group);
-  const object = new THREE.Mesh(new THREE.TorusKnotGeometry(0.7, 0.22, 80, 12), material(config.secondary));
-  object.position.set(-2.05, 0.1, -3.6);
+  const object = new THREE.Mesh(new THREE.TorusKnotGeometry(0.72, 0.22, 88, 14), material(config.secondary));
+  object.position.set(-2.05, 0.05, -3.5);
   group.add(object);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.5), new THREE.MeshStandardMaterial({ color: 0xd7d2bd, roughness: 0.9 }));
-  screen.position.set(1.15, 0, -6.2);
+
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.35, 3.55),
+    new THREE.MeshStandardMaterial({ color: 0xc9c5ad, roughness: 0.94, metalness: 0.02 })
+  );
+  screen.position.set(1.2, 0, -6.2);
   group.add(screen);
-  const shadow = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.28, 12, 48), new THREE.MeshBasicMaterial({ color: 0x242229, transparent: true, opacity: 0.76 }));
-  shadow.position.set(1.15, 0, -6.1);
+
+  const frameMaterial = new THREE.MeshBasicMaterial({ color: 0xd9ff43, transparent: true, opacity: 0.68, toneMapped: false });
+  const frameTop = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.06, 0.06), frameMaterial);
+  const frameBottom = frameTop.clone();
+  const frameLeft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.65, 0.06), frameMaterial);
+  const frameRight = frameLeft.clone();
+  frameTop.position.set(1.2, 1.8, -6.1);
+  frameBottom.position.set(1.2, -1.8, -6.1);
+  frameLeft.position.set(-1.02, 0, -6.1);
+  frameRight.position.set(3.42, 0, -6.1);
+  group.add(frameTop, frameBottom, frameLeft, frameRight);
+
+  const shadow = new THREE.Mesh(
+    new THREE.TorusGeometry(1.05, 0.27, 16, 64),
+    new THREE.MeshBasicMaterial({ color: 0x17191b, transparent: true, opacity: 0.86, depthTest: false, depthWrite: false })
+  );
+  shadow.position.set(1.2, 0, -5.94);
+  shadow.renderOrder = 7;
   group.add(shadow);
-  const target = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.085, 8, 48), new THREE.MeshBasicMaterial({ color: config.accent }));
-  target.position.set(1.15, 0, -6.02);
-  target.material.depthTest = false;
-  target.renderOrder = 5;
+
+  const target = new THREE.Mesh(
+    new THREE.TorusGeometry(1.05, 0.095, 12, 64),
+    new THREE.MeshBasicMaterial({
+      color: 0xd9ff43,
+      transparent: true,
+      opacity: 0.96,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false
+    })
+  );
+  target.position.set(1.2, 0, -5.88);
+  target.renderOrder = 9;
   group.add(target);
+
+  const lockRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.47, 0.035, 8, 64),
+    new THREE.MeshBasicMaterial({ color: 0x7cff9f, transparent: true, opacity: 0.12, depthTest: false, toneMapped: false })
+  );
+  lockRing.position.set(1.2, 0, -5.84);
+  lockRing.renderOrder = 10;
+  group.add(lockRing);
+
   const lightMarker = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 12), material(config.accent));
+  const lightHalo = new THREE.Mesh(
+    new THREE.TorusGeometry(0.48, 0.045, 8, 42),
+    new THREE.MeshBasicMaterial({ color: config.accent, transparent: true, opacity: 0.72 })
+  );
   group.add(lightMarker);
+  group.add(lightHalo);
   const lightBeam = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
-    new THREE.LineBasicMaterial({ color: config.accent, transparent: true, opacity: 0.42 })
+    new THREE.LineBasicMaterial({ color: config.accent, transparent: true, opacity: 0.68, toneMapped: false })
   );
-  group.add(lightBeam);
+  const projectionBeam = new THREE.LineSegments(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({ color: 0xd9ff43, transparent: true, opacity: 0.48, toneMapped: false })
+  );
+  group.add(lightBeam, projectionBeam);
   let angle = -1.2;
   let targetAngle = 0.65;
   let holdTime = 0;
@@ -1629,53 +1896,92 @@ function setupShadow(config, world, scene, state) {
   function setAngle(point) {
     angle = point.x * 1.5;
   }
+
+  function updateLightPath() {
+    lightMarker.position.set(Math.sin(angle) * 3.4, 1.85, -2.1 + Math.cos(angle) * 0.8);
+    lightHalo.position.copy(lightMarker.position);
+    lightBeam.geometry.setFromPoints([lightMarker.position, object.position]);
+    projectionBeam.geometry.setFromPoints([
+      object.position, new THREE.Vector3(0.35, 1.05, -5.96),
+      object.position, new THREE.Vector3(1.2, 0, -5.96),
+      object.position, new THREE.Vector3(2.05, -1.05, -5.96)
+    ]);
+  }
+
   return {
     reset() {
       angle = -1.2;
       targetAngle = 0.65;
       holdTime = 0;
       failTime = 0;
+      target.material.color.setHex(0xd9ff43);
+      shadow.material.color.setHex(0x17191b);
+      updateLightPath();
     },
     pointerDown: setAngle,
     pointerMove(point) {
       if (state.pointerDown) setAngle(point);
     },
+    keyboard(delta, keys) {
+      const direction = (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0)
+        - (keys.has('ArrowLeft') || keys.has('KeyA') ? 1 : 0);
+      if (direction) angle = THREE.MathUtils.clamp(angle + direction * delta * 1.25, -1.5, 1.5);
+    },
     update(delta, elapsed, { hit, miss }) {
-      lightMarker.position.set(Math.sin(angle) * 3.4, 1.85, -2.1 + Math.cos(angle) * 0.8);
-      lightBeam.geometry.setFromPoints([lightMarker.position, object.position]);
-      object.rotation.y = angle * 0.65;
+      updateLightPath();
+      object.rotation.x += delta * 0.12;
+      object.rotation.y += delta * 0.22;
+      lightHalo.rotation.z -= delta * 0.8;
       shadow.scale.x = 0.72 + Math.abs(Math.sin(angle)) * 0.7;
       shadow.rotation.z = angle * 0.22;
       target.scale.x = 0.72 + Math.abs(Math.sin(targetAngle)) * 0.7;
       target.rotation.z = targetAngle * 0.22;
+      lockRing.scale.copy(target.scale).multiplyScalar(1.06);
+      lockRing.rotation.z = target.rotation.z;
       const distance = Math.abs(angle - targetAngle);
       if (distance < 0.16) {
         holdTime += delta;
-        target.material.opacity = 0.6 + Math.sin(elapsed * 8) * 0.35;
+        failTime = Math.max(0, failTime - delta * 1.5);
+        shadow.material.color.setHex(0x45e58a);
+        target.material.color.setHex(0x7cff9f);
+        target.material.opacity = 0.72 + Math.sin(elapsed * 9) * 0.18;
         if (holdTime > 1) {
           hit(2);
-          targetAngle = -targetAngle * 0.82 + Math.sin(state.score) * 0.32;
+          let nextAngle = -targetAngle * 0.82 + Math.sin(state.score) * 0.32;
+          if (Math.abs(nextAngle - angle) < 0.34) nextAngle = THREE.MathUtils.clamp(nextAngle + (nextAngle > 0 ? -0.58 : 0.58), -1.15, 1.15);
+          targetAngle = nextAngle;
           holdTime = 0;
           failTime = 0;
         }
       } else {
-        holdTime = 0;
+        holdTime = Math.max(0, holdTime - delta * 1.8);
         failTime += delta;
+        shadow.material.color.setHex(0x17191b);
+        target.material.color.setHex(0xd9ff43);
+        target.material.opacity = 0.96;
         if (failTime > 9) {
           miss();
           failTime = 0;
         }
       }
+      const progress = Math.min(1, holdTime);
+      lockRing.material.opacity = 0.12 + progress * 0.88;
+      lockRing.scale.multiplyScalar(1 + (1 - progress) * 0.08);
+      projectionBeam.material.opacity = distance < 0.16 ? 0.72 : 0.48;
       document.querySelector('#power-fill').style.width = `${Math.round(Math.min(1, holdTime) * 100)}%`;
     },
     idle(delta, elapsed) {
       angle = Math.sin(elapsed * 0.55) * 1.1;
-      lightMarker.position.set(Math.sin(angle) * 3.4, 1.85, -2.1 + Math.cos(angle) * 0.8);
-      lightBeam.geometry.setFromPoints([lightMarker.position, object.position]);
-      object.rotation.y += delta * 0.4;
+      updateLightPath();
+      lightHalo.rotation.z -= delta * 0.8;
+      object.rotation.x += delta * 0.12;
+      object.rotation.y += delta * 0.22;
       shadow.scale.x = 0.72 + Math.abs(Math.sin(angle)) * 0.7;
+      shadow.rotation.z = angle * 0.22;
       target.scale.x = 0.72 + Math.abs(Math.sin(targetAngle)) * 0.7;
       target.rotation.z = targetAngle * 0.22;
+      lockRing.scale.copy(target.scale).multiplyScalar(1.12);
+      lockRing.rotation.z = target.rotation.z;
     }
   };
 }
