@@ -264,7 +264,7 @@ document.querySelector('#app').innerHTML = `
         <p>MONTH ${String(seriesMonth).padStart(2, '0')} EXPERIMENT</p>
         <h2>${selectedGame[0]}</h2>
         <p class="start-copy">${selectedDetails.instruction}</p>
-        <div class="player-identity"><span>你的随机代号</span><strong data-player-name>生成中…</strong></div>
+        <div class="player-identity"><span>你的全站统一代号</span><strong data-player-name>生成中…</strong></div>
         <div class="start-actions">
           <button id="start-button" type="button">开始游戏 <span>→</span></button>
           <a class="secondary-calendar-link" href="#calendar">查看本月全部 ${monthDayCount} 款</a>
@@ -303,11 +303,11 @@ document.querySelector('#app').innerHTML = `
       <div class="global-ranking-heading">
         <div>
           <p class="eyebrow">MOST PLAYED · LIVE</p>
-          <h2 id="global-ranking-title">总游玩次数榜</h2>
-          <p>每开始一局记录一次，看看谁是这个月最沉迷的玩家。</p>
+          <h2 id="global-ranking-title">全站游玩次数榜</h2>
+          <p>同一代号在全部游戏中的开局次数会累计到这里。</p>
         </div>
         <div class="my-global-ranking">
-          <span>你的代号</span>
+          <span>你的全站代号</span>
           <strong data-player-name>生成中…</strong>
           <div><span>游玩 <b id="my-total-plays">0</b> 次</span><span>排名 <b id="my-global-rank">--</b></span></div>
         </div>

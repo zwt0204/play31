@@ -35,7 +35,9 @@ function rankingRow(item, metric) {
   const name = document.createElement('strong');
   name.textContent = item.name;
   const detail = document.createElement('small');
-  detail.textContent = item.is_me ? '这是你' : metric === 'score' ? `${item.plays} 局` : '匿名玩家';
+  detail.textContent = item.is_me
+    ? '这是你'
+    : metric === 'score' ? `本关 ${item.plays} 局` : '全部游戏累计';
   player.append(name, detail);
 
   const value = document.createElement('b');
@@ -94,7 +96,7 @@ export function createLeaderboard({ day, elements }) {
       localStorage.setItem(TOKEN_KEY, player.token);
       identity = player;
       renderIdentity(player);
-      setStatus(player.is_new ? '已生成你的随机玩家代号' : '排行数据已更新');
+      setStatus(player.is_new ? '已生成你的全站统一代号' : '排行数据已更新');
       return player;
     })().catch((error) => {
       identityPromise = null;
