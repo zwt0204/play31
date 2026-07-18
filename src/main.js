@@ -86,9 +86,20 @@ const playableDetails = {
       '让黄色反射光落在右侧移动光球上，并持续保持到锁定进度填满。',
       '目标会逐渐加速并缩小；长时间没有完成锁定会损失一次机会。'
     ]
+  },
+  18: {
+    description: '敲准三枚咬合齿轮的同步点，把机械噪声演奏成节拍。',
+    instruction: '观察当前亮起的齿轮。发光节拍栓转进顶部绿色同步框时点击；连续命中会加速，完美卡点可得双分。',
+    control: '节拍栓进框时点击',
+    rules: [
+      '黄色光环会指出当前齿轮，只有这枚齿轮上的发光节拍栓需要关注。',
+      '节拍栓进入齿轮顶部绿色同步框时点击；越靠近正中央，得分越高。',
+      '每次命中会切换到下一枚齿轮并逐渐提速；提前敲击或漏过同步框都会损失一次机会。'
+    ]
   }
 };
 
+const publishedGameCount = 18;
 const now = new Date();
 const requestedMonth = new URLSearchParams(window.location.search).get('month');
 const monthMatch = requestedMonth?.match(/^(\d{4})-(\d{2})$/);
@@ -102,7 +113,7 @@ const monthLabel = `${seriesYear}年${seriesMonth}月`;
 const monthDayCount = new Date(seriesYear, seriesMonth, 0).getDate();
 const monthlyGames = games.slice(0, monthDayCount);
 const requestedDay = Number(new URLSearchParams(window.location.search).get('day'));
-const selectedDay = Number.isInteger(requestedDay) && requestedDay >= 1 && requestedDay <= 17 ? requestedDay : 1;
+const selectedDay = Number.isInteger(requestedDay) && requestedDay >= 1 && requestedDay <= publishedGameCount ? requestedDay : 1;
 const selectedGame = games[selectedDay - 1];
 const selectedDetails = playableDetails[selectedDay];
 const selectedDayLabel = String(selectedDay).padStart(2, '0');
@@ -110,12 +121,13 @@ const meterLabels = {
   1: '发射力度', 2: '反弹时机', 3: '接线进度', 4: '落点窗口',
   5: '航行状态', 6: '磁力位置', 7: '航线状态', 8: '影子匹配',
   9: '投球力度', 10: '隧道速度', 11: '连锁能量', 12: '重力方向',
-  13: '击球力度', 14: '当前颜色', 15: '风力高度', 16: '弹跳时机', 17: '追光锁定'
+  13: '击球力度', 14: '当前颜色', 15: '风力高度', 16: '弹跳时机', 17: '追光锁定',
+  18: '同步窗口'
 };
 const canvasPrimaryDays = new Set([3, 5, 7, 8, 9, 10, 11, 13, 17]);
 const canvasPrimary = canvasPrimaryDays.has(selectedDay);
 const gestureIcons = { 3: '◎', 5: '↔', 7: '↕', 8: '↔', 9: '⌁', 10: '↔', 11: '◎', 13: '⌁', 17: '↕' };
-const buttonIcons = { 2: '↓', 4: '▬', 6: '↔', 12: '↕', 14: '●', 15: '≈', 16: '↑' };
+const buttonIcons = { 2: '↓', 4: '▬', 6: '↔', 12: '↕', 14: '●', 15: '≈', 16: '↑', 18: '♪' };
 const canvasControlLabels = {
   3: ['点击发光镜面', '点击发光镜面'],
   5: ['鼠标移动 / A D', '左右拖动飞船'],
@@ -145,7 +157,8 @@ const platformTips = {
   14: ['鼠标点击或空格切换颜色', '点击画面切换颜色'],
   15: ['按住鼠标按钮或空格送风', '按住底部按钮送风'],
   16: ['鼠标点击或空格触发弹跳', '点击画面触发弹跳'],
-  17: ['按住鼠标上下拖镜，或按 W/S', '按住画面上下拖动镜面']
+  17: ['按住鼠标上下拖镜，或按 W/S', '按住画面上下拖动镜面'],
+  18: ['鼠标点击或按空格敲击', '点击画面或底部按钮敲击']
 };
 const [desktopTip, mobileTip] = platformTips[selectedDay];
 document.title = `Day ${selectedDayLabel} · ${selectedGame[0]} | 一日一游`;
@@ -159,7 +172,7 @@ const rules = selectedDetails.rules || [
 const gameCards = monthlyGames.map((game, index) => {
   const day = String(index + 1).padStart(2, '0');
   const dayNumber = index + 1;
-  const isPlayable = dayNumber <= 17;
+  const isPlayable = dayNumber <= publishedGameCount;
   const state = dayNumber === selectedDay ? 'today' : isPlayable ? 'published' : 'locked';
   const stateText = dayNumber === selectedDay ? '正在玩' : isPlayable ? '现在可玩' : '待解锁';
   const tag = isPlayable ? 'a' : 'article';
@@ -265,7 +278,7 @@ document.querySelector('#app').innerHTML = `
         <div class="start-actions">
           <button id="restart-button" type="button">再来一局</button>
           <button id="result-ranking-button" class="secondary-ranking-button" type="button">查看本关排行</button>
-          <a class="secondary-calendar-link" href="#calendar">浏览其他 16 款已发布游戏</a>
+          <a class="secondary-calendar-link" href="#calendar">浏览其他 ${publishedGameCount - 1} 款已发布游戏</a>
         </div>
       </div>
 
@@ -318,7 +331,7 @@ document.querySelector('#app').innerHTML = `
       <div class="filter-row" aria-label="游戏分类">
         <button class="active" type="button" data-filter="all">全部 ${monthDayCount}</button>
         <button type="button" data-filter="week">第一周</button>
-        <button type="button" data-filter="today">已发布 17</button>
+        <button type="button" data-filter="today">已发布 ${publishedGameCount}</button>
       </div>
       <div class="game-grid">${gameCards}</div>
     </section>
@@ -340,7 +353,7 @@ filterButtons.forEach((button) => {
     button.classList.add('active');
     const filter = button.dataset.filter;
     cards.forEach((card, index) => {
-      card.hidden = filter === 'today' ? index > 16 : filter === 'week' ? index > 6 : false;
+      card.hidden = filter === 'today' ? index >= publishedGameCount : filter === 'week' ? index > 6 : false;
     });
   });
 });
@@ -425,8 +438,19 @@ const gameUi = {
     }
 };
 
+gameUi.startButton.disabled = true;
+gameUi.startButton.setAttribute('aria-busy', 'true');
+const markGameReady = () => {
+  gameUi.startButton.disabled = false;
+  gameUi.startButton.removeAttribute('aria-busy');
+};
+
 if (selectedDay === 1) {
-  import('./orbitGame.js').then(({ createOrbitGame }) => createOrbitGame(gameUi));
+  import('./orbitGame.js')
+    .then(({ createOrbitGame }) => createOrbitGame(gameUi))
+    .then(markGameReady);
 } else {
-  import('./dailyGames.js').then(({ createDailyGame }) => createDailyGame(selectedDay, gameUi));
+  import('./dailyGames.js')
+    .then(({ createDailyGame }) => createDailyGame(selectedDay, gameUi))
+    .then(markGameReady);
 }

@@ -16,7 +16,8 @@ const CONFIGS = {
   14: { type: 'toggle', goal: 10, accent: 0xff5b3d, secondary: 0x35d8d1, states: 3, shape: 'color' },
   15: { type: 'hold', goal: 10, accent: 0x55dff2, secondary: 0xffd45e },
   16: { type: 'spring', goal: 8, accent: 0xd9ff43, secondary: 0xff75a8 },
-  17: { type: 'reflect', goal: 8, accent: 0xffd85a, secondary: 0x63e0d8 }
+  17: { type: 'reflect', goal: 8, accent: 0xffd85a, secondary: 0x63e0d8 },
+  18: { type: 'gear', goal: 14, accent: 0xffbd3e, secondary: 0x7cff9f }
 };
 
 export function createDailyGame(day, ui) {
@@ -342,6 +343,7 @@ function setupGame(day, config, world, scene, state, camera) {
   if (config.type === 'blast') return setupBlast(config, world, state, camera);
   if (config.type === 'spring') return setupSpring(config, world, state);
   if (config.type === 'reflect') return setupReflect(config, world, state);
+  if (config.type === 'gear') return setupGear(config, world, state);
   if (config.type === 'steer') return setupSteer(day, config, world, state);
   if (config.type === 'magnet') return setupMagnet(config, world, state);
   if (config.type === 'toggle') return setupToggle(day, config, world, state);
@@ -667,6 +669,272 @@ function setupSpring(config, world, state) {
       nextPlatform.position.x = Math.sin(elapsed * 1.25 + phase) * 2.45;
       player.position.y = currentY + 0.55 + Math.sin(elapsed * 2.8) * 0.08;
       player.rotation.y += delta;
+    }
+  };
+}
+
+function setupGear(config, world, state) {
+  const machine = new THREE.Group();
+  machine.position.set(-0.12, -0.08, -3.7);
+  machine.rotation.x = -0.08;
+  world.add(machine);
+
+  const specs = [
+    { x: -2.35, y: 0.5, radius: 1.18, teeth: 14, direction: 1, ratio: 1.08 },
+    { x: 0, y: -0.58, radius: 1.5, teeth: 18, direction: -1, ratio: 0.84 },
+    { x: 2.55, y: 0.52, radius: 1.06, teeth: 12, direction: 1, ratio: 1.18 }
+  ];
+
+  function buildGear(spec, index) {
+    const station = new THREE.Group();
+    station.position.set(spec.x, spec.y, 0);
+    machine.add(station);
+
+    const gearRoot = new THREE.Group();
+    station.add(gearRoot);
+    const gearMaterial = new THREE.MeshStandardMaterial({
+      color: index === 1 ? 0x384246 : 0x2d373a,
+      emissive: 0x12191b,
+      emissiveIntensity: 0.45,
+      metalness: 0.82,
+      roughness: 0.27
+    });
+    const edgeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x718084,
+      emissive: config.accent,
+      emissiveIntensity: 0.08,
+      metalness: 0.9,
+      roughness: 0.2
+    });
+
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(spec.radius * 0.76, spec.radius * 0.76, 0.38, spec.teeth * 2),
+      gearMaterial
+    );
+    disc.rotation.x = Math.PI / 2;
+    gearRoot.add(disc);
+
+    const innerRing = new THREE.Mesh(
+      new THREE.TorusGeometry(spec.radius * 0.54, 0.11, 10, spec.teeth * 2),
+      edgeMaterial
+    );
+    innerRing.position.z = 0.21;
+    gearRoot.add(innerRing);
+
+    const hub = new THREE.Mesh(
+      new THREE.CylinderGeometry(spec.radius * 0.2, spec.radius * 0.2, 0.52, 24),
+      gearMaterial
+    );
+    hub.rotation.x = Math.PI / 2;
+    hub.position.z = 0.04;
+    gearRoot.add(hub);
+
+    for (let toothIndex = 0; toothIndex < spec.teeth; toothIndex += 1) {
+      const angle = (toothIndex / spec.teeth) * Math.PI * 2;
+      const tooth = new THREE.Mesh(
+        new THREE.BoxGeometry(0.34, 0.42, 0.34),
+        toothIndex % 3 === 0 ? edgeMaterial : gearMaterial
+      );
+      tooth.position.set(Math.cos(angle) * spec.radius, Math.sin(angle) * spec.radius, 0);
+      tooth.rotation.z = angle;
+      gearRoot.add(tooth);
+    }
+
+    const spokeMaterial = edgeMaterial.clone();
+    spokeMaterial.emissiveIntensity = 0.04;
+    for (let spokeIndex = 0; spokeIndex < 4; spokeIndex += 1) {
+      const spoke = new THREE.Mesh(
+        new THREE.BoxGeometry(spec.radius * 1.12, 0.12, 0.22),
+        spokeMaterial
+      );
+      spoke.rotation.z = (spokeIndex / 4) * Math.PI;
+      spoke.position.z = 0.22;
+      gearRoot.add(spoke);
+    }
+
+    const markerPivot = new THREE.Group();
+    const marker = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.22, 1),
+      new THREE.MeshStandardMaterial({
+        color: config.accent,
+        emissive: config.accent,
+        emissiveIntensity: 2.4,
+        metalness: 0.22,
+        roughness: 0.18
+      })
+    );
+    marker.position.set(0, spec.radius + 0.2, 0.48);
+    markerPivot.add(marker);
+    station.add(markerPivot);
+
+    const arc = Math.PI * 0.38;
+    const gate = new THREE.Mesh(
+      new THREE.TorusGeometry(spec.radius + 0.2, 0.085, 8, 20, arc),
+      new THREE.MeshBasicMaterial({
+        color: config.secondary,
+        transparent: true,
+        opacity: 0.18,
+        depthTest: false,
+        toneMapped: false
+      })
+    );
+    gate.rotation.z = Math.PI / 2 - arc / 2;
+    gate.position.z = 0.42;
+    gate.renderOrder = 7;
+    station.add(gate);
+
+    const activeHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(spec.radius + 0.46, 0.035, 8, 56),
+      new THREE.MeshBasicMaterial({
+        color: config.accent,
+        transparent: true,
+        opacity: 0.08,
+        depthTest: false,
+        toneMapped: false
+      })
+    );
+    activeHalo.position.z = 0.35;
+    activeHalo.renderOrder = 6;
+    station.add(activeHalo);
+
+    const impactRing = new THREE.Mesh(
+      new THREE.TorusGeometry(spec.radius + 0.28, 0.06, 8, 52),
+      new THREE.MeshBasicMaterial({
+        color: config.secondary,
+        transparent: true,
+        opacity: 0,
+        depthTest: false,
+        toneMapped: false
+      })
+    );
+    impactRing.position.z = 0.52;
+    impactRing.renderOrder = 8;
+    station.add(impactRing);
+
+    return {
+      ...spec,
+      station,
+      gearRoot,
+      gearMaterial,
+      edgeMaterial,
+      markerPivot,
+      marker,
+      gate,
+      activeHalo,
+      impactRing,
+      impactLife: 0
+    };
+  }
+
+  const gears = specs.map(buildGear);
+  const sequence = [1, 0, 2, 1, 2, 0, 1, 0, 2, 1, 0, 2];
+  let sequenceIndex = 0;
+  let activeIndex = sequence[0];
+  let noteDirection = gears[activeIndex].direction;
+  let noteAngle = -noteDirection * 1.72;
+  let callbacks = null;
+
+  function prepareNote(next = true) {
+    if (next) sequenceIndex = (sequenceIndex + 1) % sequence.length;
+    activeIndex = sequence[sequenceIndex];
+    noteDirection = gears[activeIndex].direction;
+    noteAngle = -noteDirection * 1.72;
+    gears.forEach((gear, index) => {
+      const active = index === activeIndex;
+      gear.marker.visible = active;
+      gear.gate.material.opacity = active ? 0.96 : 0.12;
+      gear.activeHalo.material.opacity = active ? 0.48 : 0.05;
+      gear.gearMaterial.emissive.setHex(active ? config.accent : 0x12191b);
+      gear.gearMaterial.emissiveIntensity = active ? 0.34 : 0.45;
+      gear.edgeMaterial.emissiveIntensity = active ? 0.62 : 0.08;
+      gear.station.scale.setScalar(active ? 1.04 : 1);
+    });
+    gears[activeIndex].markerPivot.rotation.z = noteAngle;
+  }
+
+  function flashGear(success) {
+    const gear = gears[activeIndex];
+    gear.impactLife = 0.42;
+    gear.impactRing.material.color.setHex(success ? config.secondary : 0xff5b3d);
+    gear.impactRing.material.opacity = 1;
+    gear.impactRing.scale.setScalar(0.82);
+  }
+
+  function strike() {
+    if (!callbacks || !state.started || state.cooldown > 0 || state.gameOverPending) return;
+    const alignment = Math.abs(noteAngle);
+    const hitWindow = Math.max(0.25, 0.36 - state.score * 0.006);
+    if (alignment <= hitWindow) {
+      const perfect = alignment <= 0.095;
+      flashGear(true);
+      callbacks.hit(perfect ? 2 : 1);
+    } else {
+      flashGear(false);
+      callbacks.miss();
+    }
+    prepareNote();
+  }
+
+  function setProgress() {
+    const progress = Math.max(0, 1 - Math.abs(noteAngle) / 1.72);
+    const fill = document.querySelector('#power-fill');
+    if (fill) fill.style.width = `${Math.round(progress * 100)}%`;
+    return progress;
+  }
+
+  return {
+    reset() {
+      sequenceIndex = 0;
+      gears.forEach((gear) => {
+        gear.gearRoot.rotation.z = 0;
+        gear.impactLife = 0;
+        gear.impactRing.material.opacity = 0;
+      });
+      prepareNote(false);
+      setProgress();
+    },
+    controlDown: strike,
+    pointerDown: strike,
+    update(delta, elapsed, cb) {
+      callbacks = cb;
+      const tempo = 1.62 + Math.min(state.score, config.goal) * 0.045;
+      gears.forEach((gear, index) => {
+        gear.gearRoot.rotation.z += gear.direction * gear.ratio * tempo * delta;
+        gear.marker.rotation.z -= delta * 2.8;
+        if (gear.impactLife > 0) {
+          gear.impactLife -= delta;
+          const life = Math.max(0, gear.impactLife / 0.42);
+          gear.impactRing.material.opacity = life;
+          gear.impactRing.scale.setScalar(0.82 + (1 - life) * 0.48);
+        }
+        if (index !== activeIndex) gear.activeHalo.rotation.z -= delta * 0.18;
+      });
+
+      noteAngle += noteDirection * tempo * delta;
+      const activeGear = gears[activeIndex];
+      activeGear.markerPivot.rotation.z = noteAngle;
+      const progress = setProgress();
+      activeGear.activeHalo.rotation.z += delta * 0.65;
+      activeGear.activeHalo.scale.setScalar(1 + progress * 0.055 + Math.sin(elapsed * 8) * 0.012);
+      activeGear.activeHalo.material.opacity = 0.34 + progress * 0.58;
+      activeGear.gate.scale.setScalar(1 + progress * 0.06);
+      activeGear.marker.scale.setScalar(0.9 + progress * 0.45);
+
+      const hitWindow = Math.max(0.25, 0.36 - state.score * 0.006);
+      if (noteDirection * noteAngle > hitWindow * 1.28 && state.cooldown <= 0 && !state.gameOverPending) {
+        flashGear(false);
+        callbacks.miss();
+        prepareNote();
+      }
+    },
+    idle(delta, elapsed) {
+      gears.forEach((gear, index) => {
+        gear.gearRoot.rotation.z += gear.direction * gear.ratio * delta * 0.72;
+        gear.activeHalo.rotation.z += delta * (index === activeIndex ? 0.5 : 0.12);
+      });
+      const activeGear = gears[activeIndex];
+      activeGear.activeHalo.material.opacity = 0.35 + Math.sin(elapsed * 2.4) * 0.16;
+      activeGear.marker.rotation.z -= delta * 2.2;
     }
   };
 }
