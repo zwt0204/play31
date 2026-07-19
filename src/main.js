@@ -96,10 +96,20 @@ const playableDetails = {
       '节拍栓进入齿轮顶部绿色同步框时点击；越靠近正中央，得分越高。',
       '每次命中会切换到下一枚齿轮并逐渐提速；提前敲击或漏过同步框都会损失一次机会。'
     ]
+  },
+  19: {
+    description: '控制泡泡呼吸般膨胀与收缩，在尖刺星环之间寻找刚好的尺寸。',
+    instruction: '按住让泡泡膨胀，松开让它收缩。迎面环门的亮色内圈就是目标大小，在穿越瞬间让泡泡轮廓与它重合。',
+    control: '按住膨胀 · 松开收缩',
+    rules: [
+      '观察最近的发光环门，它的内圈大小就是这一次需要匹配的泡泡尺寸。',
+      '按住画面或底部按钮让泡泡膨胀，松开后会持续收缩；底部尺寸条同步显示当前大小。',
+      '穿越时尺寸越接近环门得分越高；过大或过小都会碰到尖刺，连续成功后环门会加速。'
+    ]
   }
 };
 
-const publishedGameCount = 18;
+const publishedGameCount = 19;
 const now = new Date();
 const requestedMonth = new URLSearchParams(window.location.search).get('month');
 const monthMatch = requestedMonth?.match(/^(\d{4})-(\d{2})$/);
@@ -122,12 +132,12 @@ const meterLabels = {
   5: '航行状态', 6: '磁力位置', 7: '航线状态', 8: '影子匹配',
   9: '投球力度', 10: '隧道速度', 11: '连锁能量', 12: '重力方向',
   13: '击球力度', 14: '当前颜色', 15: '风力高度', 16: '弹跳时机', 17: '追光锁定',
-  18: '同步窗口'
+  18: '同步窗口', 19: '泡泡尺寸'
 };
 const canvasPrimaryDays = new Set([3, 5, 7, 8, 9, 10, 11, 13, 17]);
 const canvasPrimary = canvasPrimaryDays.has(selectedDay);
 const gestureIcons = { 3: '◎', 5: '↔', 7: '↕', 8: '↔', 9: '⌁', 10: '↔', 11: '◎', 13: '⌁', 17: '↕' };
-const buttonIcons = { 2: '↓', 4: '▬', 6: '↔', 12: '↕', 14: '●', 15: '≈', 16: '↑', 18: '♪' };
+const buttonIcons = { 2: '↓', 4: '▬', 6: '↔', 12: '↕', 14: '●', 15: '≈', 16: '↑', 18: '♪', 19: '○' };
 const canvasControlLabels = {
   3: ['点击发光镜面', '点击发光镜面'],
   5: ['鼠标移动 / A D', '左右拖动飞船'],
@@ -158,7 +168,8 @@ const platformTips = {
   15: ['按住鼠标按钮或空格送风', '按住底部按钮送风'],
   16: ['鼠标点击或空格触发弹跳', '点击画面触发弹跳'],
   17: ['按住鼠标上下拖镜，或按 W/S', '按住画面上下拖动镜面'],
-  18: ['鼠标点击或按空格敲击', '点击画面或底部按钮敲击']
+  18: ['鼠标点击或按空格敲击', '点击画面或底部按钮敲击'],
+  19: ['按住鼠标或空格膨胀，松开收缩', '按住画面或底部按钮膨胀']
 };
 const [desktopTip, mobileTip] = platformTips[selectedDay];
 document.title = `Day ${selectedDayLabel} · ${selectedGame[0]} | 一日一游`;

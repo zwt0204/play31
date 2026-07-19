@@ -44,5 +44,5 @@ PROMPT=$(cat <<'EOF'
 EOF
 )
 
-/root/.nvm/versions/node/v20.20.2/bin/codex exec --dangerously-bypass-approvals-and-sandbox -C "$PROJECT_DIR" "$PROMPT" >> "$LOG_FILE" 2>&1
+/root/.nvm/versions/node/v20.20.2/bin/codex exec --dangerously-bypass-approvals-and-sandbox -C "$PROJECT_DIR" "$PROMPT" < /dev/null >> "$LOG_FILE" 2>&1
 printf 'finished_at=%s\ncommit=%s\n' "$(date -Is)" "$(git -C "$PROJECT_DIR" rev-parse --short HEAD)" >> "$STATUS_FILE"

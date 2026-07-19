@@ -17,7 +17,8 @@ const CONFIGS = {
   15: { type: 'hold', goal: 10, accent: 0x55dff2, secondary: 0xffd45e },
   16: { type: 'spring', goal: 8, accent: 0xd9ff43, secondary: 0xff75a8 },
   17: { type: 'reflect', goal: 8, accent: 0xffd85a, secondary: 0x63e0d8 },
-  18: { type: 'gear', goal: 14, accent: 0xffbd3e, secondary: 0x7cff9f }
+  18: { type: 'gear', goal: 14, accent: 0xffbd3e, secondary: 0x7cff9f },
+  19: { type: 'bubble', goal: 12, accent: 0x73e7ff, secondary: 0xff87c8 }
 };
 
 export function createDailyGame(day, ui) {
@@ -344,6 +345,7 @@ function setupGame(day, config, world, scene, state, camera) {
   if (config.type === 'spring') return setupSpring(config, world, state);
   if (config.type === 'reflect') return setupReflect(config, world, state);
   if (config.type === 'gear') return setupGear(config, world, state);
+  if (config.type === 'bubble') return setupBubble(config, world, state);
   if (config.type === 'steer') return setupSteer(day, config, world, state);
   if (config.type === 'magnet') return setupMagnet(config, world, state);
   if (config.type === 'toggle') return setupToggle(day, config, world, state);
@@ -669,6 +671,238 @@ function setupSpring(config, world, state) {
       nextPlatform.position.x = Math.sin(elapsed * 1.25 + phase) * 2.45;
       player.position.y = currentY + 0.55 + Math.sin(elapsed * 2.8) * 0.08;
       player.rotation.y += delta;
+    }
+  };
+}
+
+function setupBubble(config, world, state) {
+  const group = new THREE.Group();
+  group.position.set(0, -0.1, 0);
+  world.add(group);
+
+  const planet = new THREE.Mesh(
+    new THREE.SphereGeometry(3.8, 32, 20),
+    new THREE.MeshStandardMaterial({ color: 0x182f37, emissive: 0x062027, emissiveIntensity: 0.9, roughness: 0.86, metalness: 0.12 })
+  );
+  planet.position.set(0, -4.25, -14);
+  group.add(planet);
+  const planetRing = new THREE.Mesh(
+    new THREE.TorusGeometry(4.3, 0.035, 8, 72),
+    new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.38, toneMapped: false })
+  );
+  planetRing.position.copy(planet.position);
+  planetRing.rotation.x = 0.72;
+  group.add(planetRing);
+
+  const bubbleMaterial = new THREE.MeshPhysicalMaterial({
+    color: config.accent,
+    emissive: 0x104a5b,
+    emissiveIntensity: 0.9,
+    transparent: true,
+    opacity: 0.72,
+    roughness: 0.06,
+    metalness: 0.08,
+    transmission: 0.42,
+    thickness: 0.52,
+    clearcoat: 1,
+    clearcoatRoughness: 0.08
+  });
+  const bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), bubbleMaterial);
+  bubble.position.set(0, -0.35, 2.05);
+  group.add(bubble);
+  const bubbleShell = new THREE.Mesh(
+    new THREE.SphereGeometry(1.08, 24, 16),
+    new THREE.MeshBasicMaterial({ color: config.accent, transparent: true, opacity: 0.24, wireframe: true, toneMapped: false })
+  );
+  bubbleShell.position.copy(bubble.position);
+  group.add(bubbleShell);
+  const bubbleCore = new THREE.Mesh(
+    new THREE.SphereGeometry(0.24, 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0xeaffff, transparent: true, opacity: 0.8, toneMapped: false })
+  );
+  bubbleCore.position.set(-0.28, 0.02, 2.8);
+  group.add(bubbleCore);
+  const bubbleHalo = new THREE.Mesh(
+    new THREE.TorusGeometry(1.22, 0.035, 8, 48),
+    new THREE.MeshBasicMaterial({ color: config.accent, transparent: true, opacity: 0.58, toneMapped: false })
+  );
+  bubbleHalo.position.copy(bubble.position);
+  group.add(bubbleHalo);
+
+  const particles = [];
+  for (let index = 0; index < 24; index += 1) {
+    const particle = new THREE.Mesh(
+      new THREE.SphereGeometry(0.025 + (index % 3) * 0.012, 8, 6),
+      new THREE.MeshBasicMaterial({ color: index % 2 ? config.secondary : config.accent, transparent: true, opacity: 0.5 })
+    );
+    particle.position.set(((index % 6) - 2.5) * 1.35, (Math.floor(index / 6) - 1.5) * 1.45, -2 - (index % 4) * 4);
+    group.add(particle);
+    particles.push(particle);
+  }
+
+  const targetSizes = [0.78, 1.38, 0.94, 1.52, 0.68, 1.18, 0.86, 1.44, 0.74, 1.3, 0.9, 1.55];
+  const gates = [];
+  function makeGate(index) {
+    const gate = new THREE.Group();
+    gate.position.set(0, -0.35, -8 - index * 7);
+    const targetSize = targetSizes[index % targetSizes.length];
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1, 0.12, 12, 56),
+      new THREE.MeshStandardMaterial({ color: config.secondary, emissive: config.secondary, emissiveIntensity: 1.25, metalness: 0.45, roughness: 0.2 })
+    );
+    ring.scale.setScalar(targetSize);
+    gate.add(ring);
+    const innerRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.82, 0.025, 8, 48),
+      new THREE.MeshBasicMaterial({ color: 0xf4ffff, transparent: true, opacity: 0.7, toneMapped: false })
+    );
+    innerRing.scale.setScalar(targetSize);
+    innerRing.position.z = 0.05;
+    gate.add(innerRing);
+    const targetGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 12, 8),
+      new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.95, toneMapped: false })
+    );
+    targetGlow.position.set(-targetSize * 0.62, targetSize * 0.62, 0.12);
+    gate.add(targetGlow);
+    for (let spikeIndex = 0; spikeIndex < 10; spikeIndex += 1) {
+      const angle = (spikeIndex / 10) * Math.PI * 2;
+      const spike = new THREE.Mesh(
+        new THREE.ConeGeometry(0.16, 0.54, 6),
+        new THREE.MeshStandardMaterial({ color: 0xff527f, emissive: 0x4c102b, emissiveIntensity: 1.15, metalness: 0.28, roughness: 0.28 })
+      );
+      spike.position.set(Math.cos(angle) * targetSize * 1.55, Math.sin(angle) * targetSize * 1.55, 0.02);
+      spike.rotation.z = angle - Math.PI / 2;
+      gate.add(spike);
+    }
+    const ghost = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 16, 12),
+      new THREE.MeshBasicMaterial({ color: config.secondary, transparent: true, opacity: 0.07, wireframe: true, toneMapped: false })
+    );
+    ghost.scale.setScalar(targetSize);
+    ghost.position.z = -0.04;
+    gate.add(ghost);
+    gate.userData.targetSize = targetSize;
+    gate.userData.checked = false;
+    gate.userData.hit = false;
+    gate.userData.ring = ring;
+    gate.userData.ghost = ghost;
+    gate.userData.homeIndex = index;
+    group.add(gate);
+    gates.push(gate);
+  }
+  for (let index = 0; index < 4; index += 1) makeGate(index);
+
+  let callbacks = null;
+  let bubbleSize = 0.98;
+  let wobble = 0;
+
+  function resetGate(gate, index, z) {
+    const targetSize = targetSizes[(index + state.score) % targetSizes.length];
+    gate.position.set(Math.sin(index * 1.7 + state.score) * 0.55, -0.35 + Math.cos(index * 1.3) * 0.22, z);
+    gate.userData.targetSize = targetSize;
+    gate.userData.checked = false;
+    gate.userData.hit = false;
+    gate.userData.ring.material.color.setHex(config.secondary);
+    gate.userData.ring.material.emissive.setHex(config.secondary);
+    gate.userData.ring.material.emissiveIntensity = 1.25;
+    gate.userData.ring.scale.setScalar(targetSize);
+    gate.userData.ghost.scale.setScalar(targetSize);
+  }
+
+  function resetBubble() {
+    bubbleSize = 0.98;
+    wobble = 0;
+    bubble.position.set(0, -0.35, 2.05);
+    bubble.scale.setScalar(bubbleSize);
+    bubbleShell.scale.setScalar(bubbleSize);
+    bubbleHalo.scale.setScalar(bubbleSize);
+    gates.forEach((gate, index) => resetGate(gate, index, -8 - index * 7));
+    const fill = document.querySelector('#power-fill');
+    if (fill) fill.style.width = '46%';
+  }
+
+  function resolveGate(gate) {
+    if (gate.userData.checked || !callbacks) return;
+    gate.userData.checked = true;
+    if (state.cooldown > 0) return;
+    const delta = Math.abs(bubbleSize - gate.userData.targetSize);
+    if (delta <= 0.25) {
+      gate.userData.hit = true;
+      gate.userData.ring.material.color.setHex(config.accent);
+      gate.userData.ring.material.emissive.setHex(config.accent);
+      gate.userData.ring.material.emissiveIntensity = 2.6;
+      callbacks.hit(delta <= 0.09 ? 2 : 1);
+    } else {
+      gate.userData.ring.material.color.setHex(0xff527f);
+      gate.userData.ring.material.emissive.setHex(0xff173e);
+      gate.userData.ring.material.emissiveIntensity = 1.8;
+      callbacks.miss();
+    }
+  }
+
+  function setHolding(holding) {
+    if (!state.started) return;
+    state.holding = holding;
+  }
+
+  return {
+    reset: resetBubble,
+    controlDown() { setHolding(true); },
+    controlUp() { setHolding(false); },
+    pointerDown() { setHolding(true); },
+    pointerUp() { setHolding(false); },
+    update(delta, elapsed, cb) {
+      callbacks = cb;
+      const targetSize = state.holding ? 1.58 : 0.58;
+      bubbleSize += (targetSize - bubbleSize) * Math.min(1, delta * 4.8);
+      wobble += delta * (state.holding ? 3.2 : 2.2);
+      bubble.position.y = -0.35 + Math.sin(wobble) * 0.05;
+      bubble.scale.setScalar(bubbleSize);
+      bubbleShell.position.copy(bubble.position);
+      bubbleShell.scale.setScalar(bubbleSize * (1.02 + Math.sin(wobble * 1.6) * 0.025));
+      bubbleHalo.position.copy(bubble.position);
+      bubbleHalo.scale.setScalar(bubbleSize * 1.02);
+      bubbleCore.position.set(-bubbleSize * 0.28, bubble.position.y + bubbleSize * 0.22, 2.05 + bubbleSize * 0.72);
+      bubble.rotation.y += delta * (state.holding ? 1.2 : 0.55);
+      bubbleHalo.rotation.z += delta * 0.9;
+
+      const fill = document.querySelector('#power-fill');
+      if (fill) fill.style.width = `${Math.round(((bubbleSize - 0.58) / 1) * 100)}%`;
+      const speed = 3.15 + Math.min(1.5, state.score * 0.12);
+      gates.forEach((gate, index) => {
+        gate.position.z += delta * speed;
+        gate.rotation.z += delta * (index % 2 ? -0.35 : 0.26);
+        gate.userData.ghost.material.opacity = 0.08 + Math.sin(elapsed * 4 + index) * 0.025;
+        if (!gate.userData.checked && gate.position.z > 1.55) resolveGate(gate);
+        if (gate.position.z > 4.5) {
+          const farthest = Math.min(...gates.map((item) => item.position.z));
+          resetGate(gate, index, farthest - (5.8 + (index % 2) * 0.5));
+        }
+      });
+      particles.forEach((particle, index) => {
+        particle.position.z += delta * (1.1 + (index % 3) * 0.35);
+        particle.position.x += Math.sin(elapsed * 0.8 + index) * delta * 0.08;
+        if (particle.position.z > 4) particle.position.z = -18 - (index % 6);
+      });
+      planet.rotation.y += delta * 0.06;
+      planetRing.rotation.z += delta * 0.13;
+    },
+    idle(delta, elapsed) {
+      bubbleSize = 0.98 + Math.sin(elapsed * 1.4) * 0.08;
+      bubble.scale.setScalar(bubbleSize);
+      bubbleShell.position.copy(bubble.position);
+      bubbleShell.scale.setScalar(bubbleSize * 1.02);
+      bubbleHalo.position.copy(bubble.position);
+      bubbleHalo.scale.setScalar(bubbleSize * 1.02);
+      bubble.rotation.y += delta * 0.4;
+      bubbleHalo.rotation.z += delta * 0.5;
+      gates.forEach((gate, index) => {
+        gate.position.z += delta * 1.2;
+        gate.rotation.z += delta * (index % 2 ? -0.2 : 0.15);
+        if (gate.position.z > 4.5) resetGate(gate, index, -8 - index * 7);
+      });
+      planet.rotation.y += delta * 0.04;
     }
   };
 }
