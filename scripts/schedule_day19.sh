@@ -4,8 +4,9 @@ set -euo pipefail
 PROJECT_DIR="/root/game"
 LOG_FILE="$PROJECT_DIR/data/day19-codex.log"
 STATUS_FILE="$PROJECT_DIR/data/day19-codex.status"
-TARGET="$(TZ=Asia/Shanghai date '+%Y-%m-%d') 19:00:00"
+TARGET="2026-07-19 19:00:00"
 TARGET_EPOCH="$(TZ=Asia/Shanghai date -d "$TARGET" +%s)"
+export PATH="/root/.nvm/versions/node/v20.20.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 mkdir -p "$PROJECT_DIR/data"
 printf 'scheduled_for=%s Asia/Shanghai\n' "$TARGET" > "$STATUS_FILE"
@@ -43,5 +44,5 @@ PROMPT=$(cat <<'EOF'
 EOF
 )
 
-codex exec --dangerously-bypass-approvals-and-sandbox -C "$PROJECT_DIR" "$PROMPT" >> "$LOG_FILE" 2>&1
+/root/.nvm/versions/node/v20.20.2/bin/codex exec --dangerously-bypass-approvals-and-sandbox -C "$PROJECT_DIR" "$PROMPT" >> "$LOG_FILE" 2>&1
 printf 'finished_at=%s\ncommit=%s\n' "$(date -Is)" "$(git -C "$PROJECT_DIR" rev-parse --short HEAD)" >> "$STATUS_FILE"
